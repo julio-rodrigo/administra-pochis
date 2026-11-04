@@ -1,0 +1,17 @@
+.env
+*.log
+.DS_Store
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Java
+backend/target/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
