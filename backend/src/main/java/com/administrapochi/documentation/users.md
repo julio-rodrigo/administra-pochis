@@ -631,8 +631,22 @@ Source-code naming: English
 
 After this module compiles and CRUD works:
 
-1. Add mapper, service and controller tests.
+1. Extend mapper tests and add controller tests.
 2. Add a dedicated password-change operation.
 3. Add authentication only after user creation and password storage are verified.
+
+## Unit tests
+
+`UserServiceImplTest` uses JUnit 5 and Mockito with mocked `UserRepository`, `UserMapper`, and `PasswordEncoder`. It covers reads, creation, duplicate usernames, password encoding before persistence, update orchestration, missing users, and logical deletion (including already inactive users).
+
+`UserMapperTest` exercises the generated MapStruct mapper directly to verify that updates change only `name` and `username`, preserve protected fields, and ignore null values.
+
+Both test classes run without a Spring context or PostgreSQL. The current source code is the source of truth for exceptions and behavior when examples in this document differ.
+
+Run only these unit tests from the backend directory on Windows:
+
+```powershell
+.\mvnw.cmd "-Dtest=UserServiceImplTest,UserMapperTest" test
+```
 
 Update this document whenever the database schema, DTO contracts, mapper behavior, service rules, endpoints, or security decisions change.
