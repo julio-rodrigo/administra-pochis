@@ -12,6 +12,16 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(PochiNotFoundException.class)
+    public ProblemDetail handlePochiNotFound(PochiNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler({DuplicateEconomicNumberException.class, DuplicateLicensePlateException.class})
+    public ProblemDetail handlePochiConflict(RuntimeException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     public ProblemDetail handleUserNotFound(UserNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
