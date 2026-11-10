@@ -32,6 +32,39 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(DriverNotFoundException.class)
+    public ProblemDetail handleDriverNotFound(DriverNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(DriverLicenseNotFoundException.class)
+    public ProblemDetail handleDriverLicenseNotFound(DriverLicenseNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(DriverAbsenceNotFoundException.class)
+    public ProblemDetail handleDriverAbsenceNotFound(DriverAbsenceNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler({
+            DuplicateCurpException.class,
+            DriverDeletedException.class,
+            DuplicateDriverLicenseNumberException.class,
+            DriverMustBeActiveException.class
+    })
+    public ProblemDetail handleDriverConflict(RuntimeException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler({
+            InvalidDriverLicenseDateRangeException.class,
+            InvalidDriverAbsenceDateRangeException.class
+    })
+    public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
+        return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException exception) {
         ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Request validation failed");
