@@ -1,15 +1,15 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.drivers.DriverCreateRequest;
-import com.administrapochi.dtos.drivers.DriverResponse;
-import com.administrapochi.dtos.drivers.DriverUpdateRequest;
+import com.administrapochi.models.dtos.drivers.DriverCreateRequest;
+import com.administrapochi.models.dtos.drivers.DriverResponse;
+import com.administrapochi.models.dtos.drivers.DriverUpdateRequest;
 import com.administrapochi.exceptions.DriverDeletedException;
 import com.administrapochi.exceptions.DriverNotFoundException;
 import com.administrapochi.exceptions.DuplicateCurpException;
-import com.administrapochi.mappers.DriverMapper;
-import com.administrapochi.models.BloodType;
-import com.administrapochi.models.Driver;
-import com.administrapochi.models.DriverStatus;
+import com.administrapochi.models.mappers.DriverMapper;
+import com.administrapochi.models.enums.BloodType;
+import com.administrapochi.models.entities.Driver;
+import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.repositories.DriverRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

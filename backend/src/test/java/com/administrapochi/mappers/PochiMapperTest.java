@@ -1,9 +1,12 @@
 package com.administrapochi.mappers;
 
-import com.administrapochi.dtos.pochis.CreatePochiRequest;
-import com.administrapochi.dtos.pochis.PochiResponse;
-import com.administrapochi.dtos.pochis.UpdatePochiRequest;
-import com.administrapochi.models.Pochi;
+import com.administrapochi.models.dtos.pochis.CreatePochiRequest;
+import com.administrapochi.models.dtos.pochis.PochiResponse;
+import com.administrapochi.models.dtos.pochis.UpdatePochiRequest;
+import com.administrapochi.models.entities.Pochi;
+import com.administrapochi.models.entities.User;
+import com.administrapochi.models.enums.UserRole;
+import com.administrapochi.models.mappers.PochiMapper;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
@@ -28,6 +31,7 @@ class PochiMapperTest {
                 () -> assertEquals("P-01", response.getEconomicNumber()),
                 () -> assertEquals("MX-01", response.getLicensePlate()),
                 () -> assertEquals("UNTRAC", response.getUnionName()),
+                () -> assertEquals(2, response.getOwnerId()),
                 () -> assertEquals(Boolean.FALSE, response.getActive()),
                 () -> assertEquals(Instant.parse("2026-01-01T00:00:00Z"), response.getCreatedAt()),
                 () -> assertEquals(Instant.parse("2026-01-01T00:00:00Z"), response.getUpdatedAt()));
@@ -47,6 +51,7 @@ class PochiMapperTest {
         request.setEconomicNumber("P-01");
         request.setLicensePlate("MX-01");
         request.setUnionName("UNTRAC");
+        request.setOwnerId(2);
 
         Pochi pochi = pochiMapper.toEntity(request);
 
@@ -55,6 +60,7 @@ class PochiMapperTest {
                 () -> assertEquals("MX-01", pochi.getLicensePlate()),
                 () -> assertEquals("UNTRAC", pochi.getUnionName()),
                 () -> assertNull(pochi.getId()),
+                () -> assertNull(pochi.getOwner()),
                 () -> assertNull(pochi.getActive()),
                 () -> assertNull(pochi.getCreatedAt()),
                 () -> assertNull(pochi.getUpdatedAt()));
@@ -66,6 +72,7 @@ class PochiMapperTest {
         UpdatePochiRequest request = new UpdatePochiRequest();
         request.setEconomicNumber("P-02");
         request.setLicensePlate("MX-02");
+        request.setOwnerId(3);
 
         pochiMapper.updateEntity(request, pochi);
 
@@ -74,6 +81,7 @@ class PochiMapperTest {
                 () -> assertEquals("MX-02", pochi.getLicensePlate()),
                 () -> assertEquals("UNTRAC", pochi.getUnionName()),
                 () -> assertEquals(1, pochi.getId()),
+                () -> assertEquals(2, pochi.getOwner().getId()),
                 () -> assertEquals(Boolean.FALSE, pochi.getActive()),
                 () -> assertEquals(Instant.parse("2026-01-01T00:00:00Z"), pochi.getCreatedAt()),
                 () -> assertEquals(Instant.parse("2026-01-01T00:00:00Z"), pochi.getUpdatedAt()));
@@ -101,6 +109,7 @@ class PochiMapperTest {
                 .economicNumber("P-01")
                 .licensePlate("MX-01")
                 .unionName("UNTRAC")
+                .owner(User.builder().id(2).role(UserRole.OWNER).build())
                 .active(false)
                 .createdAt(timestamp)
                 .updatedAt(timestamp)

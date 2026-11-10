@@ -1,16 +1,22 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.pochis.CreatePochiRequest;
-import com.administrapochi.dtos.pochis.PochiResponse;
-import com.administrapochi.dtos.pochis.UpdatePochiRequest;
+import com.administrapochi.models.dtos.pochis.CreatePochiRequest;
+import com.administrapochi.models.dtos.pochis.PochiResponse;
+import com.administrapochi.models.dtos.pochis.UpdatePochiRequest;
 import com.administrapochi.exceptions.DuplicateEconomicNumberException;
 import com.administrapochi.exceptions.DuplicateLicensePlateException;
 import com.administrapochi.exceptions.PochiNotFoundException;
-import com.administrapochi.mappers.PochiMapper;
-import com.administrapochi.models.Pochi;
+import com.administrapochi.exceptions.UserNotFoundException;
+import com.administrapochi.models.mappers.PochiMapper;
+import com.administrapochi.models.entities.Pochi;
+import com.administrapochi.models.entities.User;
+import com.administrapochi.models.enums.UserRole;
 import com.administrapochi.repositories.PochiRepository;
+import com.administrapochi.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,6 +46,9 @@ class PochiServiceImplTest {
 
     @Mock
     private PochiMapper pochiMapper;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private PochiServiceImpl pochiService;
@@ -85,6 +94,7 @@ class PochiServiceImplTest {
         PochiResponse response = responseFor(pochi);
         when(pochiRepository.existsByEconomicNumber("P-01")).thenReturn(false);
         when(pochiRepository.existsByLicensePlate("MX-01")).thenReturn(false);
+        when(userRepository.findById(2)).thenReturn(Optional.of(owner()));
         when(pochiMapper.toEntity(request)).thenReturn(pochi);
         when(pochiRepository.save(pochi)).thenReturn(pochi);
         when(pochiMapper.toResponse(pochi)).thenReturn(response);
@@ -95,7 +105,8 @@ class PochiServiceImplTest {
                 () -> assertEquals("P-01", pochi.getEconomicNumber()),
                 () -> assertEquals("MX-01", pochi.getLicensePlate()),
                 () -> assertEquals("LOCAL", pochi.getUnionName()),
-                () -> assertTrue(pochi.getActive()));
+                () -> assertTrue(pochi.getActive()),
+                () -> assertEquals(2, pochi.getOwner().getId()));
         verify(pochiRepository).save(pochi);
     }
 
@@ -104,6 +115,7 @@ class PochiServiceImplTest {
         CreatePochiRequest request = createRequest("01", "  ", " \t");
         Pochi pochi = new Pochi();
         when(pochiRepository.existsByEconomicNumber("01")).thenReturn(false);
+        when(userRepository.findById(2)).thenReturn(Optional.of(owner()));
         when(pochiMapper.toEntity(request)).thenReturn(pochi);
         when(pochiRepository.save(pochi)).thenReturn(pochi);
         when(pochiMapper.toResponse(pochi)).thenReturn(responseFor(pochi));
@@ -144,6 +156,35 @@ class PochiServiceImplTest {
         verifyNoMoreInteractions(pochiMapper);
     }
 
+    @ParameterizedTest
+    @EnumSource(UserRole.class)
+    void createAcceptsOwnerAndAdminUsersAsOwners(UserRole role) {
+        User owner = User.builder().id(2).role(role).active(true).build();
+        CreatePochiRequest request = createRequest("P-01", null, null);
+        Pochi pochi = new Pochi();
+        when(userRepository.findById(2)).thenReturn(Optional.of(owner));
+        when(pochiMapper.toEntity(request)).thenReturn(pochi);
+        when(pochiRepository.save(pochi)).thenReturn(pochi);
+        when(pochiMapper.toResponse(pochi)).thenAnswer(invocation -> responseFor(pochi));
+
+        PochiResponse response = pochiService.create(request);
+
+        assertSame(owner, pochi.getOwner());
+        assertEquals(2, response.getOwnerId());
+        verify(userRepository).findById(2);
+    }
+
+    @Test
+    void createRejectsNonexistentOwnerWithoutPersisting() {
+        CreatePochiRequest request = createRequest("P-01", null, null);
+        when(userRepository.findById(2)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> pochiService.create(request));
+
+        verify(pochiRepository, never()).save(any(Pochi.class));
+        verifyNoMoreInteractions(pochiMapper);
+    }
+
     @Test
     void updateNormalizesAndPreservesSystemControlledValues() {
         Pochi pochi = existingPochi();
@@ -153,6 +194,7 @@ class PochiServiceImplTest {
         when(pochiRepository.findById(1)).thenReturn(Optional.of(pochi));
         when(pochiRepository.existsByEconomicNumberAndIdNot("NEW-01", 1)).thenReturn(false);
         when(pochiRepository.existsByLicensePlateAndIdNot("PLATE-2", 1)).thenReturn(false);
+        when(userRepository.findById(2)).thenReturn(Optional.of(owner()));
         when(pochiRepository.save(pochi)).thenReturn(pochi);
         when(pochiMapper.toResponse(pochi)).thenReturn(response);
 
@@ -175,6 +217,7 @@ class PochiServiceImplTest {
         UpdatePochiRequest request = updateRequest("p-01", " ");
         when(pochiRepository.findById(1)).thenReturn(Optional.of(pochi));
         when(pochiRepository.existsByEconomicNumberAndIdNot("P-01", 1)).thenReturn(false);
+        when(userRepository.findById(2)).thenReturn(Optional.of(owner()));
         when(pochiRepository.save(pochi)).thenReturn(pochi);
         when(pochiMapper.toResponse(pochi)).thenReturn(responseFor(pochi));
 
@@ -220,6 +263,40 @@ class PochiServiceImplTest {
                 () -> pochiService.update(1, updateRequest("P-01", null)));
 
         verifyNoMoreInteractions(pochiMapper);
+    }
+
+    @Test
+    void updateResolvesAndReplacesOwner() {
+        Pochi pochi = existingPochi();
+        User newOwner = User.builder().id(3).role(UserRole.ADMIN).build();
+        UpdatePochiRequest request = updateRequest("P-01", "MX-01");
+        request.setOwnerId(3);
+        when(pochiRepository.findById(1)).thenReturn(Optional.of(pochi));
+        when(userRepository.findById(3)).thenReturn(Optional.of(newOwner));
+        when(pochiRepository.save(pochi)).thenReturn(pochi);
+        when(pochiMapper.toResponse(pochi)).thenAnswer(invocation -> responseFor(pochi));
+
+        PochiResponse response = pochiService.update(1, request);
+
+        assertSame(newOwner, pochi.getOwner());
+        assertEquals(3, response.getOwnerId());
+        verify(pochiMapper).updateEntity(request, pochi);
+    }
+
+    @Test
+    void updateRejectsNonexistentOwnerAndPreservesCurrentOwner() {
+        Pochi pochi = existingPochi();
+        User originalOwner = pochi.getOwner();
+        UpdatePochiRequest request = updateRequest("P-01", null);
+        request.setOwnerId(99);
+        when(pochiRepository.findById(1)).thenReturn(Optional.of(pochi));
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> pochiService.update(1, request));
+
+        assertSame(originalOwner, pochi.getOwner());
+        verify(pochiRepository, never()).save(any(Pochi.class));
+        verify(pochiMapper, never()).updateEntity(any(), any());
     }
 
     @Test
@@ -287,6 +364,7 @@ class PochiServiceImplTest {
                 .economicNumber("P-01")
                 .licensePlate("MX-01")
                 .unionName("UNTRAC")
+                .owner(owner())
                 .active(true)
                 .createdAt(Instant.parse("2026-01-01T00:00:00Z"))
                 .updatedAt(Instant.parse("2026-01-01T00:00:00Z"))
@@ -299,6 +377,7 @@ class PochiServiceImplTest {
                 .economicNumber(pochi.getEconomicNumber())
                 .licensePlate(pochi.getLicensePlate())
                 .unionName(pochi.getUnionName())
+                .ownerId(pochi.getOwner() == null ? null : pochi.getOwner().getId())
                 .active(pochi.getActive())
                 .createdAt(pochi.getCreatedAt())
                 .updatedAt(pochi.getUpdatedAt())
@@ -310,6 +389,7 @@ class PochiServiceImplTest {
         request.setEconomicNumber(economicNumber);
         request.setLicensePlate(licensePlate);
         request.setUnionName(unionName);
+        request.setOwnerId(2);
         return request;
     }
 
@@ -317,6 +397,11 @@ class PochiServiceImplTest {
         UpdatePochiRequest request = new UpdatePochiRequest();
         request.setEconomicNumber(economicNumber);
         request.setLicensePlate(licensePlate);
+        request.setOwnerId(2);
         return request;
+    }
+
+    private User owner() {
+        return User.builder().id(2).name("Pochi owner").role(UserRole.OWNER).build();
     }
 }

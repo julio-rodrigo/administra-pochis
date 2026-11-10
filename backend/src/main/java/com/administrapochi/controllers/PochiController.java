@@ -1,8 +1,8 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.pochis.CreatePochiRequest;
-import com.administrapochi.dtos.pochis.PochiResponse;
-import com.administrapochi.dtos.pochis.UpdatePochiRequest;
+import com.administrapochi.models.dtos.pochis.CreatePochiRequest;
+import com.administrapochi.models.dtos.pochis.PochiResponse;
+import com.administrapochi.models.dtos.pochis.UpdatePochiRequest;
 import com.administrapochi.services.PochiService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

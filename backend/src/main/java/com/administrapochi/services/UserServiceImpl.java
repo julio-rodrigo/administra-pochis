@@ -1,12 +1,13 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.users.UserCreateRequest;
-import com.administrapochi.dtos.users.UserResponse;
-import com.administrapochi.dtos.users.UserUpdateRequest;
+import com.administrapochi.models.dtos.users.UserCreateRequest;
+import com.administrapochi.models.dtos.users.UserResponse;
+import com.administrapochi.models.dtos.users.UserUpdateRequest;
 import com.administrapochi.exceptions.UserNotFoundException;
 import com.administrapochi.exceptions.UsernameAlreadyExistsException;
-import com.administrapochi.mappers.UserMapper;
-import com.administrapochi.models.User;
+import com.administrapochi.models.mappers.UserMapper;
+import com.administrapochi.models.entities.User;
+import com.administrapochi.models.enums.UserRole;
 import com.administrapochi.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,6 +40,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = userMapper.toEntity(request);
+        user.setRole(request.getRole() == null ? UserRole.OWNER : request.getRole());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
 
         return userMapper.toResponse(userRepository.save(user));

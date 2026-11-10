@@ -1,10 +1,10 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.drivers.DriverResponse;
+import com.administrapochi.models.dtos.drivers.DriverResponse;
 import com.administrapochi.exceptions.ApiExceptionHandler;
 import com.administrapochi.exceptions.DriverNotFoundException;
-import com.administrapochi.models.BloodType;
-import com.administrapochi.models.DriverStatus;
+import com.administrapochi.models.enums.BloodType;
+import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.services.DriverService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

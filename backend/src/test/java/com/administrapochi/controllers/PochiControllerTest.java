@@ -1,8 +1,9 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.pochis.PochiResponse;
+import com.administrapochi.models.dtos.pochis.PochiResponse;
 import com.administrapochi.exceptions.ApiExceptionHandler;
 import com.administrapochi.exceptions.PochiNotFoundException;
+import com.administrapochi.exceptions.UserNotFoundException;
 import com.administrapochi.services.PochiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -51,12 +53,15 @@ class PochiControllerTest {
                                 {
                                   "economicNumber": "P-01",
                                   "licensePlate": "MX-01",
+                                  "ownerId": 2,
                                   "unionName": "UNTRAC"
                                 }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.economicNumber").value("P-01"));
+                .andExpect(jsonPath("$.economicNumber").value("P-01"))
+                .andExpect(jsonPath("$.ownerId").value(2))
+                .andExpect(jsonPath("$.owner").doesNotExist());
 
         verify(pochiService).create(any());
     }
@@ -67,7 +72,8 @@ class PochiControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "economicNumber": "  "
+                                  "economicNumber": "  ",
+                                  "ownerId": 2
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -84,7 +90,8 @@ class PochiControllerTest {
                 .andExpect(jsonPath("$[0].economicNumber").value("P-01"));
         mockMvc.perform(get("/api/pochis/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1));
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.ownerId").value(2));
     }
 
     @Test
@@ -96,7 +103,8 @@ class PochiControllerTest {
                         .content("""
                                 {
                                   "economicNumber": "P-01",
-                                  "licensePlate": "MX-01"
+                                  "licensePlate": "MX-01",
+                                  "ownerId": 2
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -130,6 +138,31 @@ class PochiControllerTest {
                 .andExpect(jsonPath("$.detail").value("Pochi not found with id: 1"));
     }
 
+    @Test
+    void createAndUpdateRejectMissingOwner() throws Exception {
+        String request = "{\"economicNumber\":\"P-01\"}";
+
+        mockMvc.perform(post("/api/pochis").contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.ownerId").exists());
+        mockMvc.perform(put("/api/pochis/1").contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.ownerId").exists());
+
+        verifyNoInteractions(pochiService);
+    }
+
+    @Test
+    void nonexistentOwnerUsesExistingUserNotFoundResponse() throws Exception {
+        when(pochiService.create(any())).thenThrow(new UserNotFoundException(99));
+
+        mockMvc.perform(post("/api/pochis")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"economicNumber\":\"P-01\",\"ownerId\":99}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("User with id 99 was not found"));
+    }
+
     private PochiResponse response() {
         Instant timestamp = Instant.parse("2026-01-01T00:00:00Z");
         return PochiResponse.builder()
@@ -137,6 +170,7 @@ class PochiControllerTest {
                 .economicNumber("P-01")
                 .licensePlate("MX-01")
                 .unionName("UNTRAC")
+                .ownerId(2)
                 .active(true)
                 .createdAt(timestamp)
                 .updatedAt(timestamp)

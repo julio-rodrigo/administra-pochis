@@ -1,8 +1,8 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.pochis.CreatePochiRequest;
-import com.administrapochi.dtos.pochis.PochiResponse;
-import com.administrapochi.dtos.pochis.UpdatePochiRequest;
+import com.administrapochi.models.dtos.pochis.CreatePochiRequest;
+import com.administrapochi.models.dtos.pochis.PochiResponse;
+import com.administrapochi.models.dtos.pochis.UpdatePochiRequest;
 
 import java.util.List;
 

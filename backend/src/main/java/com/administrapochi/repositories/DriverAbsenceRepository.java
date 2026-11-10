@@ -1,6 +1,6 @@
 package com.administrapochi.repositories;
 
-import com.administrapochi.models.DriverAbsence;
+import com.administrapochi.models.entities.DriverAbsence;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;

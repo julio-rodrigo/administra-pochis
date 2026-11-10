@@ -1,8 +1,8 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.driverlicenses.DriverLicenseCreateRequest;
-import com.administrapochi.dtos.driverlicenses.DriverLicenseCurrentRequest;
-import com.administrapochi.dtos.driverlicenses.DriverLicenseResponse;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseCreateRequest;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseCurrentRequest;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseResponse;
 import com.administrapochi.services.DriverLicenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

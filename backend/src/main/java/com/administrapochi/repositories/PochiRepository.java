@@ -1,6 +1,6 @@
 package com.administrapochi.repositories;
 
-import com.administrapochi.models.Pochi;
+import com.administrapochi.models.entities.Pochi;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PochiRepository extends JpaRepository<Pochi, Integer> {

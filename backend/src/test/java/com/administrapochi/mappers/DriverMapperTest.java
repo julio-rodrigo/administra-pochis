@@ -1,11 +1,12 @@
 package com.administrapochi.mappers;
 
-import com.administrapochi.dtos.drivers.DriverCreateRequest;
-import com.administrapochi.dtos.drivers.DriverResponse;
-import com.administrapochi.dtos.drivers.DriverUpdateRequest;
-import com.administrapochi.models.BloodType;
-import com.administrapochi.models.Driver;
-import com.administrapochi.models.DriverStatus;
+import com.administrapochi.models.dtos.drivers.DriverCreateRequest;
+import com.administrapochi.models.dtos.drivers.DriverResponse;
+import com.administrapochi.models.dtos.drivers.DriverUpdateRequest;
+import com.administrapochi.models.enums.BloodType;
+import com.administrapochi.models.entities.Driver;
+import com.administrapochi.models.enums.DriverStatus;
+import com.administrapochi.models.mappers.DriverMapper;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 

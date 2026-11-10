@@ -1,9 +1,9 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.drivers.DriverCreateRequest;
-import com.administrapochi.dtos.drivers.DriverResponse;
-import com.administrapochi.dtos.drivers.DriverStatusUpdateRequest;
-import com.administrapochi.dtos.drivers.DriverUpdateRequest;
+import com.administrapochi.models.dtos.drivers.DriverCreateRequest;
+import com.administrapochi.models.dtos.drivers.DriverResponse;
+import com.administrapochi.models.dtos.drivers.DriverStatusUpdateRequest;
+import com.administrapochi.models.dtos.drivers.DriverUpdateRequest;
 import com.administrapochi.services.DriverService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

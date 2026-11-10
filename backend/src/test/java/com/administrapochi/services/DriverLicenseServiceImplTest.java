@@ -1,16 +1,16 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.driverlicenses.DriverLicenseCreateRequest;
-import com.administrapochi.dtos.driverlicenses.DriverLicenseResponse;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseCreateRequest;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseResponse;
 import com.administrapochi.exceptions.DriverDeletedException;
 import com.administrapochi.exceptions.DriverLicenseNotFoundException;
 import com.administrapochi.exceptions.DuplicateDriverLicenseNumberException;
 import com.administrapochi.exceptions.InvalidDriverLicenseDateRangeException;
-import com.administrapochi.mappers.DriverLicenseMapper;
-import com.administrapochi.models.BloodType;
-import com.administrapochi.models.Driver;
-import com.administrapochi.models.DriverLicense;
-import com.administrapochi.models.DriverStatus;
+import com.administrapochi.models.mappers.DriverLicenseMapper;
+import com.administrapochi.models.enums.BloodType;
+import com.administrapochi.models.entities.Driver;
+import com.administrapochi.models.entities.DriverLicense;
+import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.repositories.DriverLicenseRepository;
 import com.administrapochi.repositories.DriverRepository;
 import org.junit.jupiter.api.Test;

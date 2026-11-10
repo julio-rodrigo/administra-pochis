@@ -1,9 +1,9 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.drivers.DriverCreateRequest;
-import com.administrapochi.dtos.drivers.DriverResponse;
-import com.administrapochi.dtos.drivers.DriverUpdateRequest;
-import com.administrapochi.models.DriverStatus;
+import com.administrapochi.models.dtos.drivers.DriverCreateRequest;
+import com.administrapochi.models.dtos.drivers.DriverResponse;
+import com.administrapochi.models.dtos.drivers.DriverUpdateRequest;
+import com.administrapochi.models.enums.DriverStatus;
 
 import java.util.List;
 

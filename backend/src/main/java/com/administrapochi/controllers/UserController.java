@@ -1,8 +1,8 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.users.UserCreateRequest;
-import com.administrapochi.dtos.users.UserResponse;
-import com.administrapochi.dtos.users.UserUpdateRequest;
+import com.administrapochi.models.dtos.users.UserCreateRequest;
+import com.administrapochi.models.dtos.users.UserResponse;
+import com.administrapochi.models.dtos.users.UserUpdateRequest;
 import com.administrapochi.services.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

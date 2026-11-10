@@ -1,8 +1,8 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.users.UserCreateRequest;
-import com.administrapochi.dtos.users.UserResponse;
-import com.administrapochi.dtos.users.UserUpdateRequest;
+import com.administrapochi.models.dtos.users.UserCreateRequest;
+import com.administrapochi.models.dtos.users.UserResponse;
+import com.administrapochi.models.dtos.users.UserUpdateRequest;
 
 import java.util.List;
 

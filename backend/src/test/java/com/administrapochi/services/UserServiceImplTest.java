@@ -1,15 +1,18 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.users.UserCreateRequest;
-import com.administrapochi.dtos.users.UserResponse;
-import com.administrapochi.dtos.users.UserUpdateRequest;
+import com.administrapochi.models.dtos.users.UserCreateRequest;
+import com.administrapochi.models.dtos.users.UserResponse;
+import com.administrapochi.models.dtos.users.UserUpdateRequest;
 import com.administrapochi.exceptions.UserNotFoundException;
 import com.administrapochi.exceptions.UsernameAlreadyExistsException;
-import com.administrapochi.mappers.UserMapper;
-import com.administrapochi.models.User;
+import com.administrapochi.models.mappers.UserMapper;
+import com.administrapochi.models.entities.User;
+import com.administrapochi.models.enums.UserRole;
 import com.administrapochi.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -104,6 +107,7 @@ class UserServiceImplTest {
         UserResponse result = userService.create(request);
 
         assertSame(response, result);
+        assertEquals(UserRole.OWNER, user.getRole());
         verify(userRepository).save(user);
         verify(userMapper).toResponse(savedUser);
     }
@@ -143,10 +147,12 @@ class UserServiceImplTest {
     }
 
     @Test
-    void updateDelegatesNameAndUsernameChangesToMapperAndPreservesProtectedFields() {
+    void updateDelegatesEditableFieldsToMapperAndPreservesProtectedFields() {
         User user = existingUser();
         user.setActive(false);
         UserUpdateRequest request = updateRequest("Updated name", "updated");
+        request.setPhone("5551234567");
+        request.setRole(UserRole.ADMIN);
         when(userRepository.findById(1)).thenReturn(Optional.of(user));
         when(userRepository.existsByUsername("updated")).thenReturn(false);
         doAnswer(invocation -> {
@@ -154,6 +160,8 @@ class UserServiceImplTest {
             User target = invocation.getArgument(1);
             target.setName(changes.getName());
             target.setUsername(changes.getUsername());
+            target.setPhone(changes.getPhone());
+            target.setRole(changes.getRole());
             return null;
         }).when(userMapper).updateEntity(request, user);
         when(userRepository.save(user)).thenReturn(user);
@@ -164,6 +172,8 @@ class UserServiceImplTest {
         assertAll(
                 () -> assertEquals("Updated name", result.getName()),
                 () -> assertEquals("updated", result.getUsername()),
+                () -> assertEquals("5551234567", result.getPhone()),
+                () -> assertEquals(UserRole.ADMIN, result.getRole()),
                 () -> assertEquals(1, user.getId()),
                 () -> assertFalse(user.getActive()),
                 () -> assertEquals("existing-hash", user.getPasswordHash()),
@@ -295,11 +305,30 @@ class UserServiceImplTest {
         verifyNoInteractions(userMapper, passwordEncoder);
     }
 
+    @ParameterizedTest
+    @EnumSource(UserRole.class)
+    void createPreservesExplicitRole(UserRole role) {
+        UserCreateRequest request = createRequest();
+        request.setRole(role);
+        User user = new User();
+        when(userMapper.toEntity(request)).thenReturn(user);
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(userRepository.save(user)).thenReturn(user);
+        when(userMapper.toResponse(user)).thenAnswer(invocation -> responseFor(user));
+
+        UserResponse response = userService.create(request);
+
+        assertEquals(role, user.getRole());
+        assertEquals(role, response.getRole());
+    }
+
     private User existingUser() {
         return User.builder()
                 .id(1)
                 .name("Original name")
                 .username("original")
+                .phone("5550000000")
+                .role(UserRole.OWNER)
                 .passwordHash("existing-hash")
                 .active(true)
                 .createdAt(Instant.parse("2026-01-01T00:00:00Z"))
@@ -311,6 +340,8 @@ class UserServiceImplTest {
                 .id(user.getId())
                 .name(user.getName())
                 .username(user.getUsername())
+                .phone(user.getPhone())
+                .role(user.getRole())
                 .active(user.getActive())
                 .createdAt(user.getCreatedAt())
                 .build();

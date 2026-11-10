@@ -27,7 +27,8 @@ com.administrapochi
 ├── mappers
 │   └── UserMapper.java
 ├── models
-│   └── User.java
+│   ├── User.java
+│   └── UserRole.java
 ├── repositories
 │   └── UserRepository.java
 ├── services
@@ -109,6 +110,8 @@ CREATE TABLE users (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     username VARCHAR(50) NOT NULL UNIQUE,
+    phone VARCHAR(20),
+    role VARCHAR(15) NOT NULL DEFAULT 'OWNER' CHECK (role IN ('ADMIN', 'OWNER')),
     password_hash VARCHAR(255) NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -120,6 +123,8 @@ CREATE TABLE users (
 | `id` | `Integer` | Database-generated identity |
 | `name` | `String` | Required |
 | `username` | `String` | Required and unique |
+| `phone` | `String` | Optional, maximum 20 characters |
+| `role` | `UserRole` | Required, `ADMIN` or `OWNER`, defaults to `OWNER` |
 | `password_hash` | `String` | Encoded password only |
 | `active` | `Boolean` | Defaults to true |
 | `created_at` | `Instant` | Creation instant |
@@ -127,6 +132,20 @@ CREATE TABLE users (
 ---
 
 # 1. User entity
+
+`UserRole` is a single Java enum, not a separate entity or role table:
+
+```java
+package com.administrapochi.models;
+
+public enum UserRole {
+    ADMIN,
+    OWNER
+}
+```
+
+Persist it using `@Enumerated(EnumType.STRING)` in the `VARCHAR(15)` column.
+Do not use the PostgreSQL named-enum mapping used by Drivers.
 
 Create `models/User.java`:
 
@@ -156,6 +175,13 @@ public class User {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
+    @Column(length = 20)
+    private String phone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 15)
+    private UserRole role;
+
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -169,7 +195,15 @@ public class User {
 
 Avoid Lombok `@Data` on JPA entities because it also generates `equals`, `hashCode`, and `toString`, which can become problematic when relationships are added.
 
-PostgreSQL owns the defaults for `active` and `created_at`. During the first persistence test, verify that Hibernate allows those database defaults to apply. If Hibernate explicitly inserts null values, initialize those fields in Java or add suitable lifecycle handling.
+The entity's `@PrePersist` callback initializes missing `role` to `OWNER`, `active`
+to `true`, and `createdAt` to `Instant.now()`, preserving supplied values. The
+service also applies the role default on creation so it is defined before persistence.
+
+`ADMIN` and `OWNER` describe access levels, not ownership relationships. A user
+with either role can own multiple Pochis. Ownership is stored exclusively in
+`pochis.owner_id`, a required foreign key to `users.id`. A role change must not
+transfer or remove Pochi ownership. Do not introduce an Owners entity/table,
+multiple roles per user, or role tables. Spring Security and authorization remain out of scope.
 
 ---
 
@@ -180,7 +214,7 @@ Create `repositories/UserRepository.java`:
 ```java
 package com.administrapochi.repositories;
 
-import com.administrapochi.models.User;
+import com.administrapochi.models.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
@@ -201,6 +235,7 @@ Create the DTOs in `dtos/users/`.
 ```java
 package com.administrapochi.dtos.users;
 
+import com.administrapochi.models.enums.UserRole;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -210,16 +245,21 @@ public class UserCreateRequest {
     private String name;
     private String username;
     private String password;
+    private String phone;
+    private UserRole role;
 }
 ```
 
-The API receives `password`, never `passwordHash`.
+The API receives `password`, never `passwordHash`. `phone` is optional and
+validated with `@Size(max = 20)`. `role` accepts only `ADMIN` or `OWNER`; an omitted
+or null role defaults to `OWNER`.
 
 ## UserUpdateRequest
 
 ```java
 package com.administrapochi.dtos.users;
 
+import com.administrapochi.models.enums.UserRole;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -228,16 +268,24 @@ import lombok.Setter;
 public class UserUpdateRequest {
     private String name;
     private String username;
+    private String phone;
+    private UserRole role;
 }
 ```
 
-Only `name` and `username` can be edited through this request. `active` is changed by the delete operation, not by general edits. Password changes are intentionally excluded; add a dedicated password-change operation later.
+Only `name`, `username`, `phone`, and `role` can be edited through this request.
+All are optional; omitted or null fields preserve their existing values, following
+the mapper's null-ignore update convention. `phone` is limited to 20 characters;
+no additional phone-format restriction is imposed. `role` accepts only `ADMIN` or
+`OWNER`. `active` is changed by the delete operation, not by general edits.
+Password changes are intentionally excluded; add a dedicated password-change operation later.
 
 ## UserResponse
 
 ```java
 package com.administrapochi.dtos.users;
 
+import com.administrapochi.models.enums.UserRole;
 import lombok.Builder;
 import lombok.Getter;
 import java.time.Instant;
@@ -248,6 +296,8 @@ public class UserResponse {
     private Integer id;
     private String name;
     private String username;
+    private String phone;
+    private UserRole role;
     private Boolean active;
     private Instant createdAt;
 }
@@ -264,9 +314,9 @@ Create `mappers/UserMapper.java`:
 ```java
 package com.administrapochi.mappers;
 
-import com.administrapochi.dtos.users.*;
-import com.administrapochi.models.User;
+import com.administrapochi.models.entities.User;
 import org.mapstruct.*;
+
 import java.util.List;
 
 @Mapper(componentModel = "spring")
@@ -291,7 +341,10 @@ public interface UserMapper {
 }
 ```
 
-MapStruct owns structural DTO/entity conversion only. It must not hash passwords, access repositories, or implement business rules. The update mapping changes only `name` and `username`; it must not modify `active`.
+MapStruct owns structural DTO/entity conversion only. It must not hash passwords,
+access repositories, or implement business rules. Matching `phone` and `role`
+fields map automatically on create, update, and response conversions. The update
+mapping changes only `name`, `username`, `phone`, and `role`; it must not modify `active`.
 
 `componentModel = "spring"` makes the generated mapper injectable as a Spring bean.
 
@@ -304,14 +357,17 @@ Create `services/UserService.java`:
 ```java
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.users.*;
 import java.util.List;
 
 public interface UserService {
     List<UserResponse> findAll();
+
     UserResponse findById(Integer id);
+
     UserResponse create(UserCreateRequest request);
+
     UserResponse update(Integer id, UserUpdateRequest request);
+
     void delete(Integer id);
 }
 ```
@@ -360,13 +416,14 @@ Create `services/UserServiceImpl.java`:
 ```java
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.users.*;
 import com.administrapochi.mappers.UserMapper;
-import com.administrapochi.models.User;
+import com.administrapochi.models.entities.User;
+import com.administrapochi.models.enums.UserRole;
 import com.administrapochi.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 
 @Service
@@ -396,6 +453,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = userMapper.toEntity(request);
+        user.setRole(request.getRole() == null ? UserRole.OWNER : request.getRole());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
 
         User savedUser = userRepository.save(user);
@@ -439,11 +497,11 @@ Create `controllers/UserController.java`:
 ```java
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.users.*;
 import com.administrapochi.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController
@@ -502,7 +560,9 @@ Example create request:
 {
   "name": "Rodrigo",
   "username": "rodrigo",
-  "password": "example-password"
+  "password": "example-password",
+  "phone": "5551234567",
+  "role": "OWNER"
 }
 ```
 
@@ -513,6 +573,8 @@ Example response:
   "id": 1,
   "name": "Rodrigo",
   "username": "rodrigo",
+  "phone": "5551234567",
+  "role": "OWNER",
   "active": true,
   "createdAt": "2026-11-05T02:00:00Z"
 }
@@ -551,7 +613,10 @@ Jakarta Bean Validation is applied to request DTOs:
 - `name`: not blank, maximum 100 characters.
 - `username`: not blank, maximum 50 characters.
 - `password`: not blank. Add a stronger policy when the application's requirements are defined.
-- On update, only `name` and `username` are accepted. Both are optional; when supplied, they cannot be blank and must fit the column lengths.
+- `phone`: optional, maximum 20 characters on create and update.
+- `role`: only `ADMIN` or `OWNER`, serialized as a string. Invalid enum values return `400 Bad Request`.
+- On create, omitted or null `role` defaults to `OWNER`.
+- On update, `name`, `username`, `phone`, and `role` are accepted. All are optional and null values preserve existing values; supplied names/usernames cannot be blank and must fit the column lengths.
 - `active` cannot be changed through the edit request; deleting a user sets it to `false`.
 
 Controller request bodies are annotated with `@Valid`.
@@ -589,7 +654,10 @@ Do not rely only on DTO validation for username uniqueness. PostgreSQL's `UNIQUE
 - PostgreSQL `TIMESTAMPTZ` maps to Java `Instant`.
 - `username` is unique.
 - Deleting a user is a soft delete that sets `active` to `false`; the database row is retained.
-- User edits can change only `name` and `username`.
+- User edits can change only `name`, `username`, `phone`, and `role`.
+- `phone` is nullable and limited to 20 characters.
+- Each user has one `UserRole` (`ADMIN` or `OWNER`), persisted with `EnumType.STRING`; the creation default is `OWNER`.
+- Both roles may own multiple Pochis; ownership is determined by `pochis.owner_id`, not by role.
 - Passwords are never stored in plain text.
 - Only encoded passwords are stored in `password_hash`.
 - Lombok reduces Java boilerplate.
@@ -622,7 +690,9 @@ Date/time: TIMESTAMPTZ in PostgreSQL, Instant in Java
 IDs: INTEGER identity in PostgreSQL, Integer in Java
 Passwords: plain password exists only in request processing; password_hash stores only PasswordEncoder output
 API: entities are never returned directly; use UserResponse; delete is soft (`active=false`)
-User updates: only `name` and `username` are editable; `active` changes only through delete
+User updates: only `name`, `username`, `phone`, and `role` are editable; `active` changes only through delete
+User role: single enum ADMIN/OWNER, EnumType.STRING, defaults to OWNER on create
+Ownership: both roles can own multiple Pochis via pochis.owner_id; no Owners entity or role tables
 Mapping: MapStruct maps DTOs/entities, but never hashes passwords or performs business logic
 Source-code naming: English
 ```
@@ -637,16 +707,20 @@ After this module compiles and CRUD works:
 
 ## Unit tests
 
-`UserServiceImplTest` uses JUnit 5 and Mockito with mocked `UserRepository`, `UserMapper`, and `PasswordEncoder`. It covers reads, creation, duplicate usernames, password encoding before persistence, update orchestration, missing users, and logical deletion (including already inactive users).
+`UserServiceImplTest` uses JUnit 5 and Mockito with mocked `UserRepository`, `UserMapper`, and `PasswordEncoder`. It covers reads, creation with default/explicit roles, duplicate usernames, password encoding before persistence, updates including phone/role, missing users, and logical deletion (including already inactive users).
 
-`UserMapperTest` exercises the generated MapStruct mapper directly to verify that updates change only `name` and `username`, preserve protected fields, and ignore null values.
+`UserMapperTest` exercises the generated MapStruct mapper directly to verify
+phone/role mappings, updates to editable fields, preservation of protected fields,
+and ignored null values. `UserTest` verifies lifecycle defaults and explicit roles.
+`UserControllerTest` covers phone length limits, optional fields, valid/invalid
+roles, and response serialization without passwords.
 
-Both test classes run without a Spring context or PostgreSQL. The current source code is the source of truth for exceptions and behavior when examples in this document differ.
+These unit tests run without a Spring context or PostgreSQL. The current source code is the source of truth for exceptions and behavior when examples in this document differ.
 
 Run only these unit tests from the backend directory on Windows:
 
 ```powershell
-.\mvnw.cmd "-Dtest=UserServiceImplTest,UserMapperTest" test
+.\mvnw.cmd "-Dtest=UserServiceImplTest,UserMapperTest,UserControllerTest,UserTest" test
 ```
 
 Update this document whenever the database schema, DTO contracts, mapper behavior, service rules, endpoints, or security decisions change.

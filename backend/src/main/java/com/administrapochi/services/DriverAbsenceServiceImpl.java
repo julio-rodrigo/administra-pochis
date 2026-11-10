@@ -1,17 +1,17 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.driverabsences.DriverAbsenceCreateRequest;
-import com.administrapochi.dtos.driverabsences.DriverAbsenceResponse;
-import com.administrapochi.dtos.driverabsences.DriverAbsenceUpdateRequest;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceCreateRequest;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceResponse;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceUpdateRequest;
 import com.administrapochi.exceptions.DriverDeletedException;
 import com.administrapochi.exceptions.DriverAbsenceNotFoundException;
 import com.administrapochi.exceptions.DriverMustBeActiveException;
 import com.administrapochi.exceptions.DriverNotFoundException;
 import com.administrapochi.exceptions.InvalidDriverAbsenceDateRangeException;
-import com.administrapochi.mappers.DriverAbsenceMapper;
-import com.administrapochi.models.Driver;
-import com.administrapochi.models.DriverAbsence;
-import com.administrapochi.models.DriverStatus;
+import com.administrapochi.models.mappers.DriverAbsenceMapper;
+import com.administrapochi.models.entities.Driver;
+import com.administrapochi.models.entities.DriverAbsence;
+import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.repositories.DriverAbsenceRepository;
 import com.administrapochi.repositories.DriverRepository;
 import lombok.RequiredArgsConstructor;

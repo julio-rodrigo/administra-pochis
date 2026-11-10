@@ -1,8 +1,8 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.driverabsences.DriverAbsenceCreateRequest;
-import com.administrapochi.dtos.driverabsences.DriverAbsenceResponse;
-import com.administrapochi.dtos.driverabsences.DriverAbsenceUpdateRequest;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceCreateRequest;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceResponse;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceUpdateRequest;
 
 import java.time.LocalDate;
 import java.util.List;

@@ -1,7 +1,7 @@
 package com.administrapochi.services;
 
-import com.administrapochi.dtos.driverlicenses.DriverLicenseCreateRequest;
-import com.administrapochi.dtos.driverlicenses.DriverLicenseResponse;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseCreateRequest;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseResponse;
 
 import java.util.List;
 

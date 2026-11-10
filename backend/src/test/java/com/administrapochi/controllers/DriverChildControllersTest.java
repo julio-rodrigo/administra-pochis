@@ -1,7 +1,7 @@
 package com.administrapochi.controllers;
 
-import com.administrapochi.dtos.driverabsences.DriverAbsenceResponse;
-import com.administrapochi.dtos.driverlicenses.DriverLicenseResponse;
+import com.administrapochi.models.dtos.driverabsences.DriverAbsenceResponse;
+import com.administrapochi.models.dtos.driverlicenses.DriverLicenseResponse;
 import com.administrapochi.exceptions.ApiExceptionHandler;
 import com.administrapochi.services.DriverAbsenceService;
 import com.administrapochi.services.DriverLicenseService;
