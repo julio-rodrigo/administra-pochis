@@ -37,6 +37,11 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(PochiAssignmentNotFoundException.class)
+    public ProblemDetail handlePochiAssignmentNotFound(PochiAssignmentNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler(DriverLicenseNotFoundException.class)
     public ProblemDetail handleDriverLicenseNotFound(DriverLicenseNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
@@ -51,7 +56,12 @@ public class ApiExceptionHandler {
             DuplicateCurpException.class,
             DriverDeletedException.class,
             DuplicateDriverLicenseNumberException.class,
-            DriverMustBeActiveException.class
+            DriverMustBeActiveException.class,
+            PochiAssignmentConflictException.class,
+            PochiAssignmentPeriodClosedException.class,
+            PochiAssignmentReferencedException.class,
+            PochiAssignmentDriverInactiveException.class,
+            PochiAssignmentPochiInactiveException.class
     })
     public ProblemDetail handleDriverConflict(RuntimeException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
@@ -59,7 +69,8 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({
             InvalidDriverLicenseDateRangeException.class,
-            InvalidDriverAbsenceDateRangeException.class
+            InvalidDriverAbsenceDateRangeException.class,
+            InvalidPochiAssignmentFilterException.class
     })
     public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());

@@ -2,7 +2,7 @@
 
 ## Project Context
 
-AdministraPochi is a modular application for managing vehicles, users, payments, expenses, and related operational records.
+AdministraPochi is a modular application for managing pochis, users, payments, expenses, and related operational records.
 
 The repository contains a Spring Boot backend under the `backend` directory. All backend code must follow the existing project conventions and the layered architecture defined in this document.
 
@@ -218,7 +218,7 @@ Examples:
 
 ```text
 docs/modules/users.md
-docs/modules/vehicles.md
+docs/modules/pochis.md
 docs/modules/payments.md
 docs/modules/expenses.md
 ```
