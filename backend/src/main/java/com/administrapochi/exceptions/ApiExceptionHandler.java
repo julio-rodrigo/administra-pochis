@@ -17,6 +17,11 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler({SettlementRuleNotFoundException.class, NoApplicableSettlementRuleException.class})
+    public ProblemDetail handleSettlementRuleNotFound(RuntimeException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler({DuplicateEconomicNumberException.class, DuplicateLicensePlateException.class})
     public ProblemDetail handlePochiConflict(RuntimeException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
@@ -57,6 +62,7 @@ public class ApiExceptionHandler {
             DriverDeletedException.class,
             DuplicateDriverLicenseNumberException.class,
             DriverMustBeActiveException.class,
+            SettlementRuleOverlapException.class,
             PochiAssignmentConflictException.class,
             PochiAssignmentPeriodClosedException.class,
             PochiAssignmentReferencedException.class,
@@ -70,6 +76,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler({
             InvalidDriverLicenseDateRangeException.class,
             InvalidDriverAbsenceDateRangeException.class,
+            InvalidSettlementRuleDateRangeException.class,
             InvalidPochiAssignmentFilterException.class
     })
     public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
