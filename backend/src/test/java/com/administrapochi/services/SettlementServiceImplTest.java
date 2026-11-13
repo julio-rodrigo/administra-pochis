@@ -3,6 +3,7 @@ package com.administrapochi.services;
 import com.administrapochi.exceptions.InvalidSettlementException;
 import com.administrapochi.exceptions.PochiAssignmentAlreadySettledException;
 import com.administrapochi.exceptions.PochiAssignmentNotFoundException;
+import com.administrapochi.exceptions.AdministrationChargeConflictException;
 import com.administrapochi.exceptions.SettlementNotFoundException;
 import com.administrapochi.models.dtos.settlements.SettlementCreateRequest;
 import com.administrapochi.models.dtos.settlements.SettlementResponse;
@@ -15,6 +16,7 @@ import com.administrapochi.models.entities.SettlementRule;
 import com.administrapochi.models.enums.Shift;
 import com.administrapochi.models.mappers.SettlementMapper;
 import com.administrapochi.repositories.PochiAssignmentRepository;
+import com.administrapochi.repositories.AdministrationChargeSettlementRepository;
 import com.administrapochi.repositories.SettlementRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +48,8 @@ class SettlementServiceImplTest {
 
     @Mock
     private SettlementRepository settlementRepository;
+    @Mock
+    private AdministrationChargeSettlementRepository chargeSettlementRepository;
     @Mock
     private PochiAssignmentRepository assignmentRepository;
     @Mock
@@ -221,6 +225,31 @@ class SettlementServiceImplTest {
 
         verify(settlementMapper, never()).updateEntity(any(), any());
         verify(settlementRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsSettlementUpdateWhenLinkedToAdministrationCharge() {
+        Settlement settlement = Settlement.builder().id(45).build();
+        SettlementUpdateRequest request = new SettlementUpdateRequest();
+        request.setAcceptedAmount(new BigDecimal("400.00"));
+        when(settlementRepository.findById(45)).thenReturn(Optional.of(settlement));
+        when(chargeSettlementRepository.existsBySettlementId(45)).thenReturn(true);
+
+        assertThrows(AdministrationChargeConflictException.class, () -> service.update(45, request));
+
+        verify(settlementMapper, never()).updateEntity(any(), any());
+        verify(settlementRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsSettlementDeletionWhenLinkedToAdministrationCharge() {
+        Settlement settlement = Settlement.builder().id(45).build();
+        when(settlementRepository.findById(45)).thenReturn(Optional.of(settlement));
+        when(chargeSettlementRepository.existsBySettlementId(45)).thenReturn(true);
+
+        assertThrows(AdministrationChargeConflictException.class, () -> service.delete(45));
+
+        verify(settlementRepository, never()).delete(any(Settlement.class));
     }
 
     @Test

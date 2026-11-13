@@ -2,6 +2,7 @@ package com.administrapochi.services;
 
 import com.administrapochi.exceptions.DriverDeletedException;
 import com.administrapochi.exceptions.DriverNotFoundException;
+import com.administrapochi.exceptions.AdministrationChargeConflictException;
 import com.administrapochi.exceptions.InvalidPochiAssignmentFilterException;
 import com.administrapochi.exceptions.PochiAssignmentConflictException;
 import com.administrapochi.exceptions.PochiAssignmentDriverInactiveException;
@@ -22,6 +23,7 @@ import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.models.enums.Shift;
 import com.administrapochi.models.mappers.PochiAssignmentMapper;
 import com.administrapochi.repositories.DriverRepository;
+import com.administrapochi.repositories.AdministrationChargeRepository;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.PochiRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +63,8 @@ class PochiAssignmentServiceImplTest {
 
     @Mock
     private PochiAssignmentRepository assignmentRepository;
+    @Mock
+    private AdministrationChargeRepository administrationChargeRepository;
     @Mock
     private DriverRepository driverRepository;
     @Mock
@@ -185,6 +189,16 @@ class PochiAssignmentServiceImplTest {
         InOrder order = inOrder(periodLockPolicy, driverRepository, pochiRepository);
         order.verify(periodLockPolicy).validatePeriodIsOpen(DATE);
         order.verifyNoMoreInteractions();
+        verify(assignmentRepository, never()).saveAllAndFlush(anyList());
+    }
+
+    @Test
+    void createRejectsAssignmentWhenDailyAdministrationChargeExists() {
+        when(administrationChargeRepository.existsByPochiIdAndChargeDate(82, DATE)).thenReturn(true);
+
+        assertThrows(AdministrationChargeConflictException.class,
+                () -> service.create(createRequest(AssignmentShiftOption.MORNING)));
+
         verify(assignmentRepository, never()).saveAllAndFlush(anyList());
     }
 

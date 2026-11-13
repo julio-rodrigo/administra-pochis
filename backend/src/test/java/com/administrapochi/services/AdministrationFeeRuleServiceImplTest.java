@@ -237,6 +237,17 @@ class AdministrationFeeRuleServiceImplTest {
     }
 
     @Test
+    void resolvesSpecificRuleEntityBeforeGlobalRule() {
+        AdministrationFeeRule specific = rule(POCHI_ID, "60.00", "80.00", VALID_FROM, null, true);
+        when(pochiRepository.findById(POCHI_ID)).thenReturn(Optional.of(pochi(POCHI_ID)));
+        when(ruleRepository.findApplicableForPochi(POCHI_ID, DATE)).thenReturn(List.of(specific));
+
+        assertThat(service.resolveApplicableRuleEntity(POCHI_ID, DATE)).isSameAs(specific);
+
+        verify(ruleRepository, never()).findApplicableGlobalRule(DATE);
+    }
+
+    @Test
     void fallsBackToGlobalRuleWhenNoActiveSpecificRuleApplies() {
         AdministrationFeeRule global = rule(null, "50.00", "70.00", VALID_FROM, null, true);
         AdministrationFeeRuleResponse response = response(RULE_ID, null, "50.00", "70.00", true);
@@ -246,6 +257,16 @@ class AdministrationFeeRuleServiceImplTest {
         when(ruleMapper.toResponse(global)).thenReturn(response);
 
         assertThat(service.findApplicableRule(POCHI_ID, DATE)).isSameAs(response);
+    }
+
+    @Test
+    void fallsBackToGlobalRuleEntityWhenNoSpecificRuleApplies() {
+        AdministrationFeeRule global = rule(null, "50.00", "70.00", VALID_FROM, null, true);
+        when(pochiRepository.findById(POCHI_ID)).thenReturn(Optional.of(pochi(POCHI_ID)));
+        when(ruleRepository.findApplicableForPochi(POCHI_ID, DATE)).thenReturn(List.of());
+        when(ruleRepository.findApplicableGlobalRule(DATE)).thenReturn(List.of(global));
+
+        assertThat(service.resolveApplicableRuleEntity(POCHI_ID, DATE)).isSameAs(global);
     }
 
     @Test

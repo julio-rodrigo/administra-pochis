@@ -17,6 +17,16 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(AdministrationChargeNotFoundException.class)
+    public ProblemDetail handleAdministrationChargeNotFound(AdministrationChargeNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(AdministrationChargeConflictException.class)
+    public ProblemDetail handleAdministrationChargeConflict(AdministrationChargeConflictException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler({SettlementRuleNotFoundException.class, NoApplicableSettlementRuleException.class})
     public ProblemDetail handleSettlementRuleNotFound(RuntimeException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
@@ -112,7 +122,8 @@ public class ApiExceptionHandler {
             InvalidSettlementException.class,
             InvalidDriverDebtException.class,
             InvalidDriverDebtFilterException.class,
-            InvalidAdministrationFeeRuleException.class
+            InvalidAdministrationFeeRuleException.class,
+            InvalidAdministrationChargeException.class
     })
     public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());

@@ -2,11 +2,11 @@ package com.administrapochi.services;
 
 import com.administrapochi.exceptions.DriverDeletedException;
 import com.administrapochi.exceptions.DriverNotFoundException;
+import com.administrapochi.exceptions.AdministrationChargeConflictException;
 import com.administrapochi.exceptions.InvalidPochiAssignmentFilterException;
 import com.administrapochi.exceptions.PochiAssignmentConflictException;
 import com.administrapochi.exceptions.PochiAssignmentDriverInactiveException;
 import com.administrapochi.exceptions.PochiAssignmentNotFoundException;
-import com.administrapochi.exceptions.PochiAssignmentPeriodClosedException;
 import com.administrapochi.exceptions.PochiAssignmentPochiInactiveException;
 import com.administrapochi.exceptions.PochiAssignmentReferencedException;
 import com.administrapochi.exceptions.PochiNotFoundException;
@@ -21,6 +21,7 @@ import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.models.enums.Shift;
 import com.administrapochi.models.mappers.PochiAssignmentMapper;
 import com.administrapochi.repositories.DriverRepository;
+import com.administrapochi.repositories.AdministrationChargeRepository;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.PochiRepository;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
             "A full-day assignment cannot be created because one or both shifts are unavailable.";
 
     private final PochiAssignmentRepository assignmentRepository;
+    private final AdministrationChargeRepository administrationChargeRepository;
     private final DriverRepository driverRepository;
     private final PochiRepository pochiRepository;
     private final PochiAssignmentMapper assignmentMapper;
@@ -60,6 +62,12 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
         validatePeriodIsOpen(request.getAssignmentDate());
         Driver driver = findActiveDriver(request.getDriverId());
         Pochi pochi = findActivePochi(request.getPochiId());
+        if (administrationChargeRepository.existsByPochiIdAndChargeDate(
+                pochi.getId(), request.getAssignmentDate())) {
+            throw new AdministrationChargeConflictException(
+                    "A Pochi Assignment cannot be created because an Administration Charge already exists "
+                            + "for Pochi " + pochi.getId() + " on " + request.getAssignmentDate() + ".");
+        }
         List<Shift> shifts = requestedShifts(request.getShift());
 
         try {

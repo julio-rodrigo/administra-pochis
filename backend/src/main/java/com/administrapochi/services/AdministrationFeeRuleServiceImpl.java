@@ -112,6 +112,11 @@ public class AdministrationFeeRuleServiceImpl implements AdministrationFeeRuleSe
 
     @Override
     public AdministrationFeeRuleResponse findApplicableRule(Integer pochiId, LocalDate date) {
+        return ruleMapper.toResponse(resolveApplicableRuleEntity(pochiId, date));
+    }
+
+    @Override
+    public AdministrationFeeRule resolveApplicableRuleEntity(Integer pochiId, LocalDate date) {
         if (pochiId == null || pochiId <= 0) {
             throw new InvalidAdministrationFeeRuleException("pochiId must be a positive integer.");
         }
@@ -126,7 +131,7 @@ public class AdministrationFeeRuleServiceImpl implements AdministrationFeeRuleSe
             throw new AdministrationFeeRuleOverlapException(pochiId);
         }
         if (!specificRules.isEmpty()) {
-            return ruleMapper.toResponse(specificRules.getFirst());
+            return specificRules.getFirst();
         }
 
         List<AdministrationFeeRule> globalRules = ruleRepository.findApplicableGlobalRule(date);
@@ -134,7 +139,7 @@ public class AdministrationFeeRuleServiceImpl implements AdministrationFeeRuleSe
             throw new AdministrationFeeRuleOverlapException(null);
         }
         if (!globalRules.isEmpty()) {
-            return ruleMapper.toResponse(globalRules.getFirst());
+            return globalRules.getFirst();
         }
         throw new NoApplicableAdministrationFeeRuleException(pochiId, date);
     }

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 public interface SettlementRepository extends
@@ -19,4 +20,11 @@ public interface SettlementRepository extends
             WHERE assignment.id IN :assignmentIds
             """)
     Set<Integer> findSettledAssignmentIds(@Param("assignmentIds") Collection<Integer> assignmentIds);
+
+    @Query("""
+            SELECT DISTINCT settlement FROM Settlement settlement
+            JOIN FETCH settlement.pochiAssignments assignment
+            WHERE assignment.id IN :assignmentIds
+            """)
+    List<Settlement> findByPochiAssignmentIds(@Param("assignmentIds") Collection<Integer> assignmentIds);
 }

@@ -2,6 +2,7 @@ package com.administrapochi.services;
 
 import com.administrapochi.exceptions.InvalidSettlementException;
 import com.administrapochi.exceptions.InvalidSettlementFilterException;
+import com.administrapochi.exceptions.AdministrationChargeConflictException;
 import com.administrapochi.exceptions.PochiAssignmentAlreadySettledException;
 import com.administrapochi.exceptions.PochiAssignmentNotFoundException;
 import com.administrapochi.exceptions.SettlementNotFoundException;
@@ -13,6 +14,7 @@ import com.administrapochi.models.entities.Settlement;
 import com.administrapochi.models.entities.SettlementRule;
 import com.administrapochi.models.mappers.SettlementMapper;
 import com.administrapochi.repositories.PochiAssignmentRepository;
+import com.administrapochi.repositories.AdministrationChargeSettlementRepository;
 import com.administrapochi.repositories.SettlementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,6 +41,7 @@ public class SettlementServiceImpl implements SettlementService {
             "uq_settlement_assignments_pochi_assignment";
 
     private final SettlementRepository settlementRepository;
+    private final AdministrationChargeSettlementRepository chargeSettlementRepository;
     private final PochiAssignmentRepository assignmentRepository;
     private final SettlementRuleService settlementRuleService;
     private final SettlementMapper settlementMapper;
@@ -129,6 +132,7 @@ public class SettlementServiceImpl implements SettlementService {
     @Transactional
     public SettlementResponse update(Integer id, SettlementUpdateRequest request) {
         Settlement settlement = findSettlement(id);
+        validateNotCharged(settlement);
         validateRequestAmounts(request.getAcceptedAmount());
         validateAdjustment(request.getAcceptedAmount(), settlement.getExpectedAmount(),
                 request.getAdjustmentReason());
@@ -139,12 +143,21 @@ public class SettlementServiceImpl implements SettlementService {
     @Override
     @Transactional
     public void delete(Integer id) {
-        settlementRepository.delete(findSettlement(id));
+        Settlement settlement = findSettlement(id);
+        validateNotCharged(settlement);
+        settlementRepository.delete(settlement);
     }
 
     private Settlement findSettlement(Integer id) {
         return settlementRepository.findById(id)
                 .orElseThrow(() -> new SettlementNotFoundException(id));
+    }
+
+    private void validateNotCharged(Settlement settlement) {
+        if (chargeSettlementRepository.existsBySettlementId(settlement.getId())) {
+            throw new AdministrationChargeConflictException(
+                    "Settlement " + settlement.getId() + " is locked by an Administration Charge.");
+        }
     }
 
     private List<PochiAssignment> resolveAssignments(List<Integer> requestedIds) {
