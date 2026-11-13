@@ -47,6 +47,14 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler({
+            AdministrationFeeRuleNotFoundException.class,
+            NoApplicableAdministrationFeeRuleException.class
+    })
+    public ProblemDetail handleAdministrationFeeRuleNotFound(RuntimeException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler(PochiAssignmentNotFoundException.class)
     public ProblemDetail handlePochiAssignmentNotFound(PochiAssignmentNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
@@ -89,6 +97,12 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(AdministrationFeeRuleOverlapException.class)
+    public ProblemDetail handleAdministrationFeeRuleConflict(
+            AdministrationFeeRuleOverlapException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler({
             InvalidDriverLicenseDateRangeException.class,
             InvalidDriverAbsenceDateRangeException.class,
@@ -97,7 +111,8 @@ public class ApiExceptionHandler {
             InvalidSettlementFilterException.class,
             InvalidSettlementException.class,
             InvalidDriverDebtException.class,
-            InvalidDriverDebtFilterException.class
+            InvalidDriverDebtFilterException.class,
+            InvalidAdministrationFeeRuleException.class
     })
     public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
