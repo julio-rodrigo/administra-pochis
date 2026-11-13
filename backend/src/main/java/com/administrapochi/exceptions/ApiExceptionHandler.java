@@ -42,6 +42,11 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(DriverDebtNotFoundException.class)
+    public ProblemDetail handleDriverDebtNotFound(DriverDebtNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler(PochiAssignmentNotFoundException.class)
     public ProblemDetail handlePochiAssignmentNotFound(PochiAssignmentNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
@@ -79,13 +84,20 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(DriverDebtConflictException.class)
+    public ProblemDetail handleDriverDebtConflict(DriverDebtConflictException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler({
             InvalidDriverLicenseDateRangeException.class,
             InvalidDriverAbsenceDateRangeException.class,
             InvalidSettlementRuleDateRangeException.class,
             InvalidPochiAssignmentFilterException.class,
             InvalidSettlementFilterException.class,
-            InvalidSettlementException.class
+            InvalidSettlementException.class,
+            InvalidDriverDebtException.class,
+            InvalidDriverDebtFilterException.class
     })
     public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
