@@ -57,6 +57,16 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(ExpenseNotFoundException.class)
+    public ProblemDetail handleExpenseNotFound(ExpenseNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(ExpenseConflictException.class)
+    public ProblemDetail handleExpenseConflict(ExpenseConflictException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler(DriverNotFoundException.class)
     public ProblemDetail handleDriverNotFound(DriverNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
@@ -132,6 +142,7 @@ public class ApiExceptionHandler {
             InvalidSettlementException.class,
             InvalidDriverDebtException.class,
             InvalidDriverDebtFilterException.class,
+            InvalidExpenseException.class,
             InvalidAdministrationFeeRuleException.class,
             InvalidAdministrationChargeException.class
     })
