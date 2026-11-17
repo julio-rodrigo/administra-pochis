@@ -47,6 +47,16 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(ExpenseTypeNotFoundException.class)
+    public ProblemDetail handleExpenseTypeNotFound(ExpenseTypeNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(ExpenseTypeConflictException.class)
+    public ProblemDetail handleExpenseTypeConflict(ExpenseTypeConflictException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler(DriverNotFoundException.class)
     public ProblemDetail handleDriverNotFound(DriverNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
