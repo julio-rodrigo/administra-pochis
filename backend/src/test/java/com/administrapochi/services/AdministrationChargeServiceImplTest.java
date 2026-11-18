@@ -11,18 +11,23 @@ import com.administrapochi.models.entities.AdministrationChargeSettlement;
 import com.administrapochi.models.entities.AdministrationFeeRule;
 import com.administrapochi.models.entities.Pochi;
 import com.administrapochi.models.entities.PochiAssignment;
+import com.administrapochi.models.entities.PochiDailyStatus;
 import com.administrapochi.models.entities.Settlement;
 import com.administrapochi.models.entities.User;
 import com.administrapochi.models.enums.Shift;
+import com.administrapochi.models.enums.PochiDailyStatusType;
 import com.administrapochi.models.mappers.AdministrationChargeMapper;
 import com.administrapochi.repositories.AdministrationChargeRepository;
 import com.administrapochi.repositories.AdministrationChargeSettlementRepository;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.PochiRepository;
+import com.administrapochi.repositories.PochiDailyStatusRepository;
 import com.administrapochi.repositories.SettlementRepository;
 import com.administrapochi.repositories.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -77,6 +82,10 @@ class AdministrationChargeServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private AdministrationChargeMapper chargeMapper;
+    @Mock
+    private PochiDailyStatusPolicy dailyStatusPolicy;
+    @Mock
+    private PochiDailyStatusRepository dailyStatusRepository;
 
     @InjectMocks
     private AdministrationChargeServiceImpl service;
@@ -105,6 +114,21 @@ class AdministrationChargeServiceImplTest {
     @Test
     void createsOneShiftChargeFromMorningAssignmentAndItsSettlement() {
         assertSingleShiftCharge(Shift.MORNING);
+    }
+
+    @ParameterizedTest
+    @EnumSource(PochiDailyStatusType.class)
+    void blocksChargeForEveryDailyStatusBeforeCalculating(PochiDailyStatusType status) {
+        service = new AdministrationChargeServiceImpl(chargeRepository, chargeSettlementRepository,
+                pochiRepository, assignmentRepository, settlementRepository, feeRuleService, userRepository,
+                chargeMapper, new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository));
+        when(pochiRepository.findByIdForUpdate(POCHI_ID)).thenReturn(Optional.of(pochi));
+        when(dailyStatusRepository.findByPochiIdAndStatusDate(POCHI_ID, CHARGE_DATE))
+                .thenReturn(Optional.of(PochiDailyStatus.builder().status(status).build()));
+        assertThrows(com.administrapochi.exceptions.PochiDailyStatusConflictException.class,
+                () -> service.create(request(null, null)));
+        verify(feeRuleService, never()).resolveApplicableRuleEntity(any(), any());
+        verify(chargeRepository, never()).saveAndFlush(any());
     }
 
     @Test

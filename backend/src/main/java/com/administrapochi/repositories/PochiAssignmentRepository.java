@@ -14,6 +14,8 @@ public interface PochiAssignmentRepository extends
         JpaRepository<PochiAssignment, Integer>,
         JpaSpecificationExecutor<PochiAssignment> {
 
+    boolean existsByPochiIdAndAssignmentDate(Integer pochiId, LocalDate assignmentDate);
+
     boolean existsByAssignmentDateAndPochiIdAndShift(
             LocalDate assignmentDate, Integer pochiId, Shift shift);
 

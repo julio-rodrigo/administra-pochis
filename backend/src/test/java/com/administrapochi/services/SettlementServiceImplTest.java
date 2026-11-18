@@ -11,14 +11,21 @@ import com.administrapochi.models.dtos.settlements.SettlementUpdateRequest;
 import com.administrapochi.models.entities.Driver;
 import com.administrapochi.models.entities.Pochi;
 import com.administrapochi.models.entities.PochiAssignment;
+import com.administrapochi.models.entities.PochiDailyStatus;
 import com.administrapochi.models.entities.Settlement;
 import com.administrapochi.models.entities.SettlementRule;
 import com.administrapochi.models.enums.Shift;
+import com.administrapochi.models.enums.PochiDailyStatusType;
 import com.administrapochi.models.mappers.SettlementMapper;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.AdministrationChargeSettlementRepository;
 import com.administrapochi.repositories.SettlementRepository;
+import com.administrapochi.repositories.PochiDailyStatusRepository;
+import com.administrapochi.repositories.PochiRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -35,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,9 +64,35 @@ class SettlementServiceImplTest {
     private SettlementRuleService settlementRuleService;
     @Mock
     private SettlementMapper settlementMapper;
+    @Mock
+    private PochiDailyStatusPolicy dailyStatusPolicy;
+    @Mock
+    private EntityManager entityManager;
+    @Mock
+    private PochiDailyStatusRepository dailyStatusRepository;
+    @Mock
+    private PochiRepository pochiRepository;
 
     @InjectMocks
     private SettlementServiceImpl service;
+
+    @ParameterizedTest
+    @EnumSource(PochiDailyStatusType.class)
+    void blocksSettlementForEveryDailyStatusBeforeCalculating(PochiDailyStatusType status) {
+        service = new SettlementServiceImpl(settlementRepository, chargeSettlementRepository,
+                assignmentRepository, settlementRuleService, settlementMapper,
+                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository), entityManager);
+        PochiAssignment assignment = assignment(ASSIGNMENT_ID, DRIVER_ID, POCHI_ID, WORK_DATE, Shift.MORNING);
+        SettlementCreateRequest request = request(List.of(ASSIGNMENT_ID), "400.00", null);
+        when(assignmentRepository.findAllById(request.getPochiAssignmentIds())).thenReturn(List.of(assignment));
+        when(pochiRepository.findByIdForUpdate(POCHI_ID)).thenReturn(Optional.of(assignment.getPochi()));
+        when(dailyStatusRepository.findByPochiIdAndStatusDate(POCHI_ID, WORK_DATE))
+                .thenReturn(Optional.of(PochiDailyStatus.builder().status(status).build()));
+        assertThrows(com.administrapochi.exceptions.PochiDailyStatusConflictException.class,
+                () -> service.create(request));
+        verify(settlementRuleService, never()).resolveApplicableRule(any(), any(), any());
+        verify(settlementRepository, never()).saveAndFlush(any());
+    }
 
     @Test
     void createsSettlementForMorningAndAfternoonUsingApplicableRule() {
@@ -134,6 +168,20 @@ class SettlementServiceImplTest {
 
         assertThrows(PochiAssignmentNotFoundException.class, () -> service.create(request));
         verify(settlementRepository, never()).findSettledAssignmentIds(any());
+    }
+
+    @Test
+    void rejectsAssignmentMovedWhileWaitingForPochiLock() {
+        PochiAssignment assignment = assignment(ASSIGNMENT_ID, DRIVER_ID, POCHI_ID, WORK_DATE, Shift.MORNING);
+        SettlementCreateRequest request = request(List.of(ASSIGNMENT_ID), "400.00", null);
+        when(assignmentRepository.findAllById(request.getPochiAssignmentIds())).thenReturn(List.of(assignment));
+        doAnswer(invocation -> {
+            assignment.setAssignmentDate(WORK_DATE.plusDays(1));
+            return null;
+        }).when(entityManager).refresh(assignment);
+        assertThrows(InvalidSettlementException.class, () -> service.create(request));
+        verify(settlementRepository, never()).saveAndFlush(any());
+        verify(settlementRuleService, never()).resolveApplicableRule(any(), any(), any());
     }
 
     @Test
@@ -262,7 +310,6 @@ class SettlementServiceImplTest {
     private void rejectsIncompatibleAssignments(PochiAssignment first, PochiAssignment second) {
         SettlementCreateRequest request = request(List.of(first.getId(), second.getId()), "400.00", null);
         when(assignmentRepository.findAllById(request.getPochiAssignmentIds())).thenReturn(List.of(first, second));
-        when(settlementRepository.findSettledAssignmentIds(request.getPochiAssignmentIds())).thenReturn(Set.of());
 
         assertThrows(InvalidSettlementException.class, () -> service.create(request));
         verify(settlementRuleService, never()).resolveApplicableRule(any(), any(), any());

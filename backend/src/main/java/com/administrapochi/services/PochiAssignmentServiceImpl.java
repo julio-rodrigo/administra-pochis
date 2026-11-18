@@ -24,6 +24,8 @@ import com.administrapochi.repositories.DriverRepository;
 import com.administrapochi.repositories.AdministrationChargeRepository;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.PochiRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -55,6 +57,8 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
     private final PochiAssignmentMapper assignmentMapper;
     private final AssignmentPeriodLockPolicy periodLockPolicy;
     private final PochiAssignmentReferencePolicy referencePolicy;
+    private final PochiDailyStatusPolicy dailyStatusPolicy;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -62,6 +66,8 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
         validatePeriodIsOpen(request.getAssignmentDate());
         Driver driver = findActiveDriver(request.getDriverId());
         Pochi pochi = findActivePochi(request.getPochiId());
+        dailyStatusPolicy.lockPochi(pochi.getId());
+        dailyStatusPolicy.validateAssignmentAllowed(pochi.getId(), request.getAssignmentDate());
         if (administrationChargeRepository.existsByPochiIdAndChargeDate(
                 pochi.getId(), request.getAssignmentDate())) {
             throw new AdministrationChargeConflictException(
@@ -141,11 +147,20 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
         PochiAssignment assignment = findAssignment(id);
         validatePeriodIsOpen(assignment.getAssignmentDate());
         validatePeriodIsOpen(request.getAssignmentDate());
+        Integer originalPochiId = assignment.getPochi().getId();
+        LocalDate originalDate = assignment.getAssignmentDate();
+        dailyStatusPolicy.lockPochis(originalPochiId, request.getPochiId());
+        refreshAssignment(assignment);
+        if (!originalPochiId.equals(assignment.getPochi().getId())
+                || !originalDate.equals(assignment.getAssignmentDate())) {
+            throw new PochiAssignmentConflictException("The Pochi Assignment changed concurrently; retry the update.");
+        }
         if (referencePolicy.isReferenced(assignment)) {
             throw new PochiAssignmentReferencedException(id);
         }
         Driver driver = findActiveDriver(request.getDriverId());
         Pochi pochi = findActivePochi(request.getPochiId());
+        dailyStatusPolicy.validateAssignmentAllowed(pochi.getId(), request.getAssignmentDate());
         validateAvailability(request.getAssignmentDate(), pochi.getId(), driver.getId(), request.getShift(), id, false);
 
         assignmentMapper.updateEntity(request, assignment);
@@ -164,6 +179,14 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
     public void delete(Integer id) {
         PochiAssignment assignment = findAssignment(id);
         validatePeriodIsOpen(assignment.getAssignmentDate());
+        Integer originalPochiId = assignment.getPochi().getId();
+        LocalDate originalDate = assignment.getAssignmentDate();
+        dailyStatusPolicy.lockPochi(originalPochiId);
+        refreshAssignment(assignment);
+        if (!originalPochiId.equals(assignment.getPochi().getId())
+                || !originalDate.equals(assignment.getAssignmentDate())) {
+            throw new PochiAssignmentConflictException("The Pochi Assignment changed concurrently; retry deletion.");
+        }
         if (referencePolicy.isReferenced(assignment)) {
             throw new PochiAssignmentReferencedException(id);
         }
@@ -220,5 +243,13 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
     private PochiAssignment findAssignment(Integer id) {
         return assignmentRepository.findById(id)
                 .orElseThrow(() -> new PochiAssignmentNotFoundException(id));
+    }
+
+    private void refreshAssignment(PochiAssignment assignment) {
+        try {
+            entityManager.refresh(assignment);
+        } catch (EntityNotFoundException exception) {
+            throw new PochiAssignmentNotFoundException(assignment.getId());
+        }
     }
 }

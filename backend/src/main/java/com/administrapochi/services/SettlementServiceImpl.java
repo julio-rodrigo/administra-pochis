@@ -16,6 +16,8 @@ import com.administrapochi.models.mappers.SettlementMapper;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.AdministrationChargeSettlementRepository;
 import com.administrapochi.repositories.SettlementRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -45,6 +47,8 @@ public class SettlementServiceImpl implements SettlementService {
     private final PochiAssignmentRepository assignmentRepository;
     private final SettlementRuleService settlementRuleService;
     private final SettlementMapper settlementMapper;
+    private final PochiDailyStatusPolicy dailyStatusPolicy;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -54,10 +58,27 @@ public class SettlementServiceImpl implements SettlementService {
         validateUniqueAssignmentIds(requestedIds);
 
         List<PochiAssignment> assignments = resolveAssignments(requestedIds);
-        validateAssignmentsAvailable(requestedIds);
         validateCompatibleAssignments(assignments);
 
         PochiAssignment firstAssignment = assignments.getFirst();
+        Integer pochiId = firstAssignment.getPochi().getId();
+        LocalDate assignmentDate = firstAssignment.getAssignmentDate();
+        dailyStatusPolicy.lockPochi(pochiId);
+        for (PochiAssignment assignment : assignments) {
+            try {
+                entityManager.refresh(assignment);
+            } catch (EntityNotFoundException exception) {
+                throw new PochiAssignmentNotFoundException(assignment.getId());
+            }
+        }
+        if (!pochiId.equals(firstAssignment.getPochi().getId())
+                || !assignmentDate.equals(firstAssignment.getAssignmentDate())) {
+            throw new InvalidSettlementException("A Pochi Assignment changed concurrently; retry the Settlement.");
+        }
+        validateCompatibleAssignments(assignments);
+        validateAssignmentsAvailable(requestedIds);
+        dailyStatusPolicy.validateFinancialOperationAllowed(
+                pochiId, assignmentDate, "A Settlement");
         SettlementRule rule = settlementRuleService.resolveApplicableRule(
                 firstAssignment.getPochi().getId(), assignments.size(), firstAssignment.getAssignmentDate());
         if (rule.getAmount() == null || rule.getAmount().signum() < 0) {

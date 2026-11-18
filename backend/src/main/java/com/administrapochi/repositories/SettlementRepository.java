@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -13,6 +14,8 @@ import java.util.Set;
 public interface SettlementRepository extends
         JpaRepository<Settlement, Integer>,
         JpaSpecificationExecutor<Settlement> {
+
+    boolean existsByPochiIdAndWorkDate(Integer pochiId, LocalDate workDate);
 
     @Query("""
             SELECT assignment.id FROM Settlement settlement

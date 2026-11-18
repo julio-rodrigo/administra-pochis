@@ -17,17 +17,23 @@ import com.administrapochi.models.dtos.pochiassignments.PochiAssignmentUpdateReq
 import com.administrapochi.models.entities.Driver;
 import com.administrapochi.models.entities.Pochi;
 import com.administrapochi.models.entities.PochiAssignment;
+import com.administrapochi.models.entities.PochiDailyStatus;
 import com.administrapochi.models.enums.AssignmentShiftOption;
 import com.administrapochi.models.enums.BloodType;
 import com.administrapochi.models.enums.DriverStatus;
 import com.administrapochi.models.enums.Shift;
+import com.administrapochi.models.enums.PochiDailyStatusType;
 import com.administrapochi.models.mappers.PochiAssignmentMapper;
 import com.administrapochi.repositories.DriverRepository;
 import com.administrapochi.repositories.AdministrationChargeRepository;
 import com.administrapochi.repositories.PochiAssignmentRepository;
 import com.administrapochi.repositories.PochiRepository;
+import com.administrapochi.repositories.PochiDailyStatusRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -75,6 +81,12 @@ class PochiAssignmentServiceImplTest {
     private AssignmentPeriodLockPolicy periodLockPolicy;
     @Mock
     private PochiAssignmentReferencePolicy referencePolicy;
+    @Mock
+    private PochiDailyStatusPolicy dailyStatusPolicy;
+    @Mock
+    private EntityManager entityManager;
+    @Mock
+    private PochiDailyStatusRepository dailyStatusRepository;
 
     @InjectMocks
     private PochiAssignmentServiceImpl service;
@@ -202,6 +214,42 @@ class PochiAssignmentServiceImplTest {
         verify(assignmentRepository, never()).saveAllAndFlush(anyList());
     }
 
+    @ParameterizedTest
+    @EnumSource(value = PochiDailyStatusType.class, names = {"UNION_REST", "NOT_WORKED"})
+    void createAndUpdateRejectConflictingDailyStatuses(PochiDailyStatusType status) {
+        service = new PochiAssignmentServiceImpl(assignmentRepository, administrationChargeRepository,
+                driverRepository, pochiRepository, assignmentMapper, periodLockPolicy, referencePolicy,
+                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository), entityManager);
+        when(pochiRepository.findByIdForUpdate(82)).thenReturn(Optional.of(pochi()));
+        when(dailyStatusRepository.findByPochiIdAndStatusDate(any(), any()))
+                .thenReturn(Optional.of(PochiDailyStatus.builder().status(status).build()));
+        assertThrows(com.administrapochi.exceptions.PochiDailyStatusConflictException.class,
+                () -> service.create(createRequest(AssignmentShiftOption.MORNING)));
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
+        when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
+        assertThrows(com.administrapochi.exceptions.PochiDailyStatusConflictException.class,
+                () -> service.update(5, updateRequest()));
+        verify(assignmentRepository, never()).saveAllAndFlush(anyList());
+        verify(assignmentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createAllowsDayOffDailyStatus() {
+        service = new PochiAssignmentServiceImpl(assignmentRepository, administrationChargeRepository,
+                driverRepository, pochiRepository, assignmentMapper, periodLockPolicy, referencePolicy,
+                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository), entityManager);
+        when(pochiRepository.findByIdForUpdate(82)).thenReturn(Optional.of(pochi()));
+        when(dailyStatusRepository.findByPochiIdAndStatusDate(82, DATE))
+                .thenReturn(Optional.of(PochiDailyStatus.builder().status(PochiDailyStatusType.DAY_OFF).build()));
+        PochiAssignmentCreateRequest request = createRequest(AssignmentShiftOption.MORNING);
+        PochiAssignment assignment = new PochiAssignment();
+        when(assignmentMapper.toEntity(eq(request), any(Pochi.class), any(Driver.class), eq(Shift.MORNING)))
+                .thenReturn(assignment);
+        when(assignmentRepository.saveAllAndFlush(anyList())).thenReturn(List.of(assignment));
+        when(assignmentMapper.toResponse(assignment)).thenReturn(PochiAssignmentResponse.builder().id(5).build());
+        assertEquals(5, service.create(request).getFirst().getId());
+    }
+
     @Test
     void createRejectsMissingOrInactiveResources() {
         PochiAssignmentCreateRequest request = createRequest(AssignmentShiftOption.MORNING);
@@ -253,7 +301,7 @@ class PochiAssignmentServiceImplTest {
 
     @Test
     void updateChecksBothPeriodDatesAndExcludesCurrentIdFromCollisionChecks() {
-        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).build();
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
         PochiAssignmentUpdateRequest request = updateRequest();
         when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
         when(assignmentRepository.saveAndFlush(assignment)).thenReturn(assignment);
@@ -288,7 +336,7 @@ class PochiAssignmentServiceImplTest {
 
     @Test
     void updateRejectsAssignmentReferencedByAnotherBusinessRecord() {
-        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).build();
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
         when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
         when(referencePolicy.isReferenced(assignment)).thenReturn(true);
 
@@ -298,8 +346,20 @@ class PochiAssignmentServiceImplTest {
     }
 
     @Test
+    void updateRejectsAssignmentMovedWhileWaitingForPochiLock() {
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
+        when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assignment.setAssignmentDate(DATE.minusDays(1));
+            return null;
+        }).when(entityManager).refresh(assignment);
+        assertThrows(PochiAssignmentConflictException.class, () -> service.update(5, updateRequest()));
+        verify(assignmentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void deleteRequiresOpenPeriodAndUnreferencedAssignment() {
-        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).build();
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
         when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
         when(referencePolicy.isReferenced(assignment)).thenReturn(true);
         assertThrows(PochiAssignmentReferencedException.class, () -> service.delete(5));
