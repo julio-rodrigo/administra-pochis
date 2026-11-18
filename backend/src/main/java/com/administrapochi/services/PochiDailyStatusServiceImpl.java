@@ -45,6 +45,7 @@ public class PochiDailyStatusServiceImpl implements PochiDailyStatusService {
     private final UserRepository userRepository;
     private final PochiDailyStatusMapper mapper;
     private final PochiDailyStatusPolicy dailyStatusPolicy;
+    private final WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
     private final EntityManager entityManager;
 
     @Override
@@ -54,6 +55,7 @@ public class PochiDailyStatusServiceImpl implements PochiDailyStatusService {
             throw new InvalidPochiDailyStatusException("pochiId must be a positive integer.");
         }
         Pochi pochi = dailyStatusPolicy.lockPochi(request.getPochiId());
+        weeklyClosingMovementLockPolicy.validateUnlocked(pochi.getId(), request.getStatusDate());
         String comment = validateAndNormalize(request.getStatusDate(), request.getStatus(), request.getComment());
         if (dailyStatusRepository.existsByPochiIdAndStatusDate(pochi.getId(), request.getStatusDate())) {
             throw duplicateStatus();
@@ -112,6 +114,8 @@ public class PochiDailyStatusServiceImpl implements PochiDailyStatusService {
         Integer pochiId = dailyStatus.getPochi().getId();
         dailyStatusPolicy.lockPochi(pochiId);
         refreshDailyStatus(dailyStatus, id);
+        weeklyClosingMovementLockPolicy.validateUnlocked(pochiId, dailyStatus.getStatusDate());
+        weeklyClosingMovementLockPolicy.validateUnlocked(pochiId, request.getStatusDate());
         String comment = validateAndNormalize(request.getStatusDate(), request.getStatus(), request.getComment());
         if (dailyStatusRepository.existsByPochiIdAndStatusDateAndIdNot(pochiId, request.getStatusDate(), id)) {
             throw duplicateStatus();
@@ -131,6 +135,8 @@ public class PochiDailyStatusServiceImpl implements PochiDailyStatusService {
         PochiDailyStatus dailyStatus = findDailyStatus(id);
         dailyStatusPolicy.lockPochi(dailyStatus.getPochi().getId());
         refreshDailyStatus(dailyStatus, id);
+        weeklyClosingMovementLockPolicy.validateUnlocked(
+                dailyStatus.getPochi().getId(), dailyStatus.getStatusDate());
         dailyStatusRepository.delete(dailyStatus);
     }
 

@@ -58,6 +58,7 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
     private final AssignmentPeriodLockPolicy periodLockPolicy;
     private final PochiAssignmentReferencePolicy referencePolicy;
     private final PochiDailyStatusPolicy dailyStatusPolicy;
+    private final WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
     private final EntityManager entityManager;
 
     @Override
@@ -66,6 +67,7 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
         validatePeriodIsOpen(request.getAssignmentDate());
         Driver driver = findActiveDriver(request.getDriverId());
         Pochi pochi = findActivePochi(request.getPochiId());
+        weeklyClosingMovementLockPolicy.validateUnlocked(pochi.getId(), request.getAssignmentDate());
         dailyStatusPolicy.lockPochi(pochi.getId());
         dailyStatusPolicy.validateAssignmentAllowed(pochi.getId(), request.getAssignmentDate());
         if (administrationChargeRepository.existsByPochiIdAndChargeDate(
@@ -155,6 +157,8 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
                 || !originalDate.equals(assignment.getAssignmentDate())) {
             throw new PochiAssignmentConflictException("The Pochi Assignment changed concurrently; retry the update.");
         }
+        weeklyClosingMovementLockPolicy.validateUnlocked(assignment.getPochi().getId(), assignment.getAssignmentDate());
+        weeklyClosingMovementLockPolicy.validateUnlocked(request.getPochiId(), request.getAssignmentDate());
         if (referencePolicy.isReferenced(assignment)) {
             throw new PochiAssignmentReferencedException(id);
         }
@@ -187,6 +191,7 @@ public class PochiAssignmentServiceImpl implements PochiAssignmentService {
                 || !originalDate.equals(assignment.getAssignmentDate())) {
             throw new PochiAssignmentConflictException("The Pochi Assignment changed concurrently; retry deletion.");
         }
+        weeklyClosingMovementLockPolicy.validateUnlocked(assignment.getPochi().getId(), assignment.getAssignmentDate());
         if (referencePolicy.isReferenced(assignment)) {
             throw new PochiAssignmentReferencedException(id);
         }

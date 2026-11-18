@@ -48,6 +48,7 @@ public class SettlementServiceImpl implements SettlementService {
     private final SettlementRuleService settlementRuleService;
     private final SettlementMapper settlementMapper;
     private final PochiDailyStatusPolicy dailyStatusPolicy;
+    private final WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
     private final EntityManager entityManager;
 
     @Override
@@ -76,6 +77,7 @@ public class SettlementServiceImpl implements SettlementService {
             throw new InvalidSettlementException("A Pochi Assignment changed concurrently; retry the Settlement.");
         }
         validateCompatibleAssignments(assignments);
+        weeklyClosingMovementLockPolicy.validateUnlocked(pochiId, assignmentDate);
         validateAssignmentsAvailable(requestedIds);
         dailyStatusPolicy.validateFinancialOperationAllowed(
                 pochiId, assignmentDate, "A Settlement");
@@ -153,6 +155,7 @@ public class SettlementServiceImpl implements SettlementService {
     @Transactional
     public SettlementResponse update(Integer id, SettlementUpdateRequest request) {
         Settlement settlement = findSettlement(id);
+        weeklyClosingMovementLockPolicy.validateUnlocked(settlement.getPochi().getId(), settlement.getWorkDate());
         validateNotCharged(settlement);
         validateRequestAmounts(request.getAcceptedAmount());
         validateAdjustment(request.getAcceptedAmount(), settlement.getExpectedAmount(),
@@ -165,6 +168,7 @@ public class SettlementServiceImpl implements SettlementService {
     @Transactional
     public void delete(Integer id) {
         Settlement settlement = findSettlement(id);
+        weeklyClosingMovementLockPolicy.validateUnlocked(settlement.getPochi().getId(), settlement.getWorkDate());
         validateNotCharged(settlement);
         settlementRepository.delete(settlement);
     }

@@ -70,6 +70,7 @@ class PochiDailyStatusServiceImplTest {
     @Mock private UserRepository userRepository;
     @Mock private PochiDailyStatusMapper mapper;
     @Mock private PochiDailyStatusPolicy dailyStatusPolicy;
+    @Mock private WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
     @Mock private EntityManager entityManager;
     @InjectMocks private PochiDailyStatusServiceImpl service;
 
@@ -105,6 +106,17 @@ class PochiDailyStatusServiceImplTest {
         } else {
             verify(assignmentRepository).existsByPochiIdAndAssignmentDate(POCHI_ID, DATE);
         }
+    }
+
+    @Test
+    void rejectsCreationWhenWeeklyClosingLocksPochiDate() {
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(POCHI_ID, DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.create(request(PochiDailyStatusType.DAY_OFF, null)));
+
+        verify(dailyStatusRepository, never()).saveAndFlush(any());
     }
 
     @ParameterizedTest
@@ -157,6 +169,34 @@ class PochiDailyStatusServiceImplTest {
         assertThat(entity.getUpdatedAt()).isNotNull();
         assertThat(entity.getComment()).isEqualTo("Workshop");
         verify(assignmentRepository).existsByPochiIdAndAssignmentDate(POCHI_ID, DATE);
+    }
+
+    @Test
+    void rejectsUpdateWhenWeeklyClosingLocksExistingDate() {
+        PochiDailyStatus entity = PochiDailyStatus.builder().id(STATUS_ID).pochi(pochi)
+                .status(PochiDailyStatusType.DAY_OFF).statusDate(DATE).build();
+        when(dailyStatusRepository.findById(STATUS_ID)).thenReturn(Optional.of(entity));
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(POCHI_ID, DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.update(STATUS_ID, updateRequest(PochiDailyStatusType.NOT_WORKED, "Correction")));
+
+        verify(dailyStatusRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void rejectsDeletionWhenWeeklyClosingLocksPochiDate() {
+        PochiDailyStatus entity = PochiDailyStatus.builder().id(STATUS_ID).pochi(pochi)
+                .status(PochiDailyStatusType.DAY_OFF).statusDate(DATE).build();
+        when(dailyStatusRepository.findById(STATUS_ID)).thenReturn(Optional.of(entity));
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(POCHI_ID, DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.delete(STATUS_ID));
+
+        verify(dailyStatusRepository, never()).delete(entity);
     }
 
     @Test

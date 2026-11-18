@@ -84,6 +84,8 @@ class PochiAssignmentServiceImplTest {
     @Mock
     private PochiDailyStatusPolicy dailyStatusPolicy;
     @Mock
+    private WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
+    @Mock
     private EntityManager entityManager;
     @Mock
     private PochiDailyStatusRepository dailyStatusRepository;
@@ -191,6 +193,44 @@ class PochiAssignmentServiceImplTest {
     }
 
     @Test
+    void createRejectsMovementLockedByWeeklyClosing() {
+        PochiAssignmentCreateRequest request = createRequest(AssignmentShiftOption.MORNING);
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(82, DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.create(request));
+
+        verify(assignmentRepository, never()).saveAllAndFlush(anyList());
+    }
+
+    @Test
+    void updateRejectsMovementLockedByWeeklyClosing() {
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
+        when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(82, DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.update(5, updateRequest()));
+
+        verify(assignmentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void deleteRejectsMovementLockedByWeeklyClosing() {
+        PochiAssignment assignment = PochiAssignment.builder().id(5).assignmentDate(DATE).pochi(pochi()).build();
+        when(assignmentRepository.findById(5)).thenReturn(Optional.of(assignment));
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(82, DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.delete(5));
+
+        verify(assignmentRepository, never()).delete(any(PochiAssignment.class));
+    }
+
+    @Test
     void createChecksPeriodBeforeLookingUpResources() {
         PochiAssignmentCreateRequest request = createRequest(AssignmentShiftOption.MORNING);
         org.mockito.Mockito.doThrow(new PochiAssignmentPeriodClosedException())
@@ -219,7 +259,8 @@ class PochiAssignmentServiceImplTest {
     void createAndUpdateRejectConflictingDailyStatuses(PochiDailyStatusType status) {
         service = new PochiAssignmentServiceImpl(assignmentRepository, administrationChargeRepository,
                 driverRepository, pochiRepository, assignmentMapper, periodLockPolicy, referencePolicy,
-                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository), entityManager);
+                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository),
+                weeklyClosingMovementLockPolicy, entityManager);
         when(pochiRepository.findByIdForUpdate(82)).thenReturn(Optional.of(pochi()));
         when(dailyStatusRepository.findByPochiIdAndStatusDate(any(), any()))
                 .thenReturn(Optional.of(PochiDailyStatus.builder().status(status).build()));
@@ -237,7 +278,8 @@ class PochiAssignmentServiceImplTest {
     void createAllowsDayOffDailyStatus() {
         service = new PochiAssignmentServiceImpl(assignmentRepository, administrationChargeRepository,
                 driverRepository, pochiRepository, assignmentMapper, periodLockPolicy, referencePolicy,
-                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository), entityManager);
+                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository),
+                weeklyClosingMovementLockPolicy, entityManager);
         when(pochiRepository.findByIdForUpdate(82)).thenReturn(Optional.of(pochi()));
         when(dailyStatusRepository.findByPochiIdAndStatusDate(82, DATE))
                 .thenReturn(Optional.of(PochiDailyStatus.builder().status(PochiDailyStatusType.DAY_OFF).build()));

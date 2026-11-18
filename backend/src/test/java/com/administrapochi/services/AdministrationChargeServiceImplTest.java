@@ -85,6 +85,8 @@ class AdministrationChargeServiceImplTest {
     @Mock
     private PochiDailyStatusPolicy dailyStatusPolicy;
     @Mock
+    private WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
+    @Mock
     private PochiDailyStatusRepository dailyStatusRepository;
 
     @InjectMocks
@@ -116,12 +118,25 @@ class AdministrationChargeServiceImplTest {
         assertSingleShiftCharge(Shift.MORNING);
     }
 
+    @Test
+    void rejectsChargeCreationWhenWeeklyClosingLocksPochiDate() {
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(POCHI_ID, CHARGE_DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.create(request(null, null)));
+
+        verify(assignmentRepository, never()).findForAdministrationCharge(any(), any());
+        verify(chargeRepository, never()).saveAndFlush(any());
+    }
+
     @ParameterizedTest
     @EnumSource(PochiDailyStatusType.class)
     void blocksChargeForEveryDailyStatusBeforeCalculating(PochiDailyStatusType status) {
         service = new AdministrationChargeServiceImpl(chargeRepository, chargeSettlementRepository,
                 pochiRepository, assignmentRepository, settlementRepository, feeRuleService, userRepository,
-                chargeMapper, new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository));
+                chargeMapper, new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository),
+                weeklyClosingMovementLockPolicy);
         when(pochiRepository.findByIdForUpdate(POCHI_ID)).thenReturn(Optional.of(pochi));
         when(dailyStatusRepository.findByPochiIdAndStatusDate(POCHI_ID, CHARGE_DATE))
                 .thenReturn(Optional.of(PochiDailyStatus.builder().status(status).build()));

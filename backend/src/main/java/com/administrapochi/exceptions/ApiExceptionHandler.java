@@ -42,6 +42,19 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(WeeklyClosingNotFoundException.class)
+    public ProblemDetail handleWeeklyClosingNotFound(WeeklyClosingNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(WeeklyClosingIncompleteException.class)
+    public ProblemDetail handleWeeklyClosingIncomplete(WeeklyClosingIncompleteException exception) {
+        ProblemDetail problem = problem(HttpStatus.CONFLICT, exception.getMessage());
+        problem.setProperty("message", exception.getMessage());
+        problem.setProperty("unresolvedDays", exception.getUnresolvedDays());
+        return problem;
+    }
+
     @ExceptionHandler(UsernameAlreadyExistsException.class)
     public ProblemDetail handleUsernameAlreadyExists(UsernameAlreadyExistsException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
@@ -122,7 +135,8 @@ public class ApiExceptionHandler {
             PochiAssignmentDriverInactiveException.class,
             PochiAssignmentPochiInactiveException.class,
             PochiAssignmentAlreadySettledException.class,
-            PochiDailyStatusConflictException.class
+            PochiDailyStatusConflictException.class,
+            WeeklyClosingConflictException.class
     })
     public ProblemDetail handleDriverConflict(RuntimeException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
@@ -151,7 +165,8 @@ public class ApiExceptionHandler {
             InvalidDriverDebtFilterException.class,
             InvalidExpenseException.class,
             InvalidAdministrationFeeRuleException.class,
-            InvalidAdministrationChargeException.class
+            InvalidAdministrationChargeException.class,
+            InvalidWeeklyClosingException.class
     })
     public ProblemDetail handleDriverDateValidation(RuntimeException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage());

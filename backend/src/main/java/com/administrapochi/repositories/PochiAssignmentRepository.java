@@ -37,4 +37,16 @@ public interface PochiAssignmentRepository extends
             """)
     List<PochiAssignment> findForAdministrationCharge(
             @Param("pochiId") Integer pochiId, @Param("assignmentDate") LocalDate assignmentDate);
+
+    @Query("""
+            SELECT DISTINCT assignment.pochi.id AS pochiId,
+                   assignment.assignmentDate AS resolvedDate
+            FROM PochiAssignment assignment
+            WHERE assignment.pochi.id IN :pochiIds
+              AND assignment.assignmentDate BETWEEN :startDate AND :endDate
+            """)
+    List<PochiDayResolution> findResolvedPochiDays(
+            @Param("pochiIds") List<Integer> pochiIds,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

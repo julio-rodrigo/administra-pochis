@@ -67,6 +67,8 @@ class SettlementServiceImplTest {
     @Mock
     private PochiDailyStatusPolicy dailyStatusPolicy;
     @Mock
+    private WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
+    @Mock
     private EntityManager entityManager;
     @Mock
     private PochiDailyStatusRepository dailyStatusRepository;
@@ -81,7 +83,8 @@ class SettlementServiceImplTest {
     void blocksSettlementForEveryDailyStatusBeforeCalculating(PochiDailyStatusType status) {
         service = new SettlementServiceImpl(settlementRepository, chargeSettlementRepository,
                 assignmentRepository, settlementRuleService, settlementMapper,
-                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository), entityManager);
+                new PochiDailyStatusPolicy(dailyStatusRepository, pochiRepository),
+                weeklyClosingMovementLockPolicy, entityManager);
         PochiAssignment assignment = assignment(ASSIGNMENT_ID, DRIVER_ID, POCHI_ID, WORK_DATE, Shift.MORNING);
         SettlementCreateRequest request = request(List.of(ASSIGNMENT_ID), "400.00", null);
         when(assignmentRepository.findAllById(request.getPochiAssignmentIds())).thenReturn(List.of(assignment));
@@ -124,6 +127,21 @@ class SettlementServiceImplTest {
         assertThat(persisted.getAcceptedAmount()).isEqualByComparingTo("400.00");
         assertThat(persisted.getPochiAssignments()).containsExactlyInAnyOrder(morning, afternoon);
         verify(settlementRuleService).resolveApplicableRule(POCHI_ID, 2, WORK_DATE);
+    }
+
+    @Test
+    void rejectsCreationWhenWeeklyClosingLocksAssignmentDate() {
+        PochiAssignment assignment = assignment(ASSIGNMENT_ID, DRIVER_ID, POCHI_ID, WORK_DATE, Shift.MORNING);
+        SettlementCreateRequest request = request(List.of(ASSIGNMENT_ID), "400.00", null);
+        when(assignmentRepository.findAllById(request.getPochiAssignmentIds())).thenReturn(List.of(assignment));
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(POCHI_ID, WORK_DATE);
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.create(request));
+
+        verify(settlementRepository, never()).saveAndFlush(any());
+        verify(settlementRuleService, never()).resolveApplicableRule(any(), any(), any());
     }
 
     @Test
@@ -236,6 +254,8 @@ class SettlementServiceImplTest {
     void updatePreservesHistoricalExpectedAmountWithoutResolvingRulesAgain() {
         Settlement settlement = Settlement.builder()
                 .id(45)
+                .pochi(Pochi.builder().id(POCHI_ID).build())
+                .workDate(WORK_DATE)
                 .expectedAmount(new BigDecimal("400.00"))
                 .acceptedAmount(new BigDecimal("400.00"))
                 .build();
@@ -262,6 +282,8 @@ class SettlementServiceImplTest {
     void updateRejectsChangedAmountWithoutReason() {
         Settlement settlement = Settlement.builder()
                 .id(45)
+                .pochi(Pochi.builder().id(POCHI_ID).build())
+                .workDate(WORK_DATE)
                 .expectedAmount(new BigDecimal("400.00"))
                 .acceptedAmount(new BigDecimal("400.00"))
                 .build();
@@ -277,7 +299,8 @@ class SettlementServiceImplTest {
 
     @Test
     void rejectsSettlementUpdateWhenLinkedToAdministrationCharge() {
-        Settlement settlement = Settlement.builder().id(45).build();
+        Settlement settlement = Settlement.builder().id(45)
+                .pochi(Pochi.builder().id(POCHI_ID).build()).workDate(WORK_DATE).build();
         SettlementUpdateRequest request = new SettlementUpdateRequest();
         request.setAcceptedAmount(new BigDecimal("400.00"));
         when(settlementRepository.findById(45)).thenReturn(Optional.of(settlement));
@@ -291,12 +314,34 @@ class SettlementServiceImplTest {
 
     @Test
     void rejectsSettlementDeletionWhenLinkedToAdministrationCharge() {
-        Settlement settlement = Settlement.builder().id(45).build();
+        Settlement settlement = Settlement.builder().id(45)
+                .pochi(Pochi.builder().id(POCHI_ID).build()).workDate(WORK_DATE).build();
         when(settlementRepository.findById(45)).thenReturn(Optional.of(settlement));
         when(chargeSettlementRepository.existsBySettlementId(45)).thenReturn(true);
 
         assertThrows(AdministrationChargeConflictException.class, () -> service.delete(45));
 
+        verify(settlementRepository, never()).delete(any(Settlement.class));
+    }
+
+    @Test
+    void rejectsSettlementUpdateAndDeletionWhenWeeklyClosingLocksDate() {
+        Settlement settlement = Settlement.builder().id(45)
+                .pochi(Pochi.builder().id(POCHI_ID).build()).workDate(WORK_DATE)
+                .expectedAmount(new BigDecimal("400.00")).acceptedAmount(new BigDecimal("400.00")).build();
+        when(settlementRepository.findById(45)).thenReturn(Optional.of(settlement));
+        org.mockito.Mockito.doThrow(new com.administrapochi.exceptions.WeeklyClosingConflictException("locked"))
+                .when(weeklyClosingMovementLockPolicy).validateUnlocked(POCHI_ID, WORK_DATE);
+        SettlementUpdateRequest request = new SettlementUpdateRequest();
+        request.setAcceptedAmount(new BigDecimal("400.00"));
+
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.update(45, request));
+        assertThrows(com.administrapochi.exceptions.WeeklyClosingConflictException.class,
+                () -> service.delete(45));
+
+        verify(settlementMapper, never()).updateEntity(any(), any());
+        verify(settlementRepository, never()).save(any());
         verify(settlementRepository, never()).delete(any(Settlement.class));
     }
 

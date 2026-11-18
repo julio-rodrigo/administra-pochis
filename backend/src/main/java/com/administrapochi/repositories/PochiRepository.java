@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PochiRepository extends JpaRepository<Pochi, Integer> {
@@ -22,4 +23,6 @@ public interface PochiRepository extends JpaRepository<Pochi, Integer> {
     boolean existsByEconomicNumberAndIdNot(String economicNumber, Integer id);
 
     boolean existsByLicensePlateAndIdNot(String licensePlate, Integer id);
+
+    List<Pochi> findAllByOwner_IdOrderByIdAsc(Integer ownerId);
 }

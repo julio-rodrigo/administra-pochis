@@ -56,6 +56,7 @@ public class AdministrationChargeServiceImpl implements AdministrationChargeServ
     private final UserRepository userRepository;
     private final AdministrationChargeMapper chargeMapper;
     private final PochiDailyStatusPolicy dailyStatusPolicy;
+    private final WeeklyClosingMovementLockPolicy weeklyClosingMovementLockPolicy;
 
     @Override
     @Transactional
@@ -67,6 +68,7 @@ public class AdministrationChargeServiceImpl implements AdministrationChargeServ
 
         Pochi pochi = pochiRepository.findById(request.getPochiId())
                 .orElseThrow(() -> new PochiNotFoundException(request.getPochiId()));
+        weeklyClosingMovementLockPolicy.validateUnlocked(pochi.getId(), request.getChargeDate());
         dailyStatusPolicy.lockPochi(pochi.getId());
         dailyStatusPolicy.validateFinancialOperationAllowed(
                 pochi.getId(), request.getChargeDate(), "An Administration Charge");
