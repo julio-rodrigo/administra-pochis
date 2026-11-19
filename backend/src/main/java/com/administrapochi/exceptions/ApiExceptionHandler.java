@@ -47,6 +47,11 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(ReportAccessDeniedException.class)
+    public ProblemDetail handleReportAccessDenied(ReportAccessDeniedException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
     @ExceptionHandler(WeeklyClosingIncompleteException.class)
     public ProblemDetail handleWeeklyClosingIncomplete(WeeklyClosingIncompleteException exception) {
         ProblemDetail problem = problem(HttpStatus.CONFLICT, exception.getMessage());

@@ -29,10 +29,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -57,7 +55,7 @@ public class WeeklyClosingServiceImpl implements WeeklyClosingService {
     @Override
     @Transactional
     public WeeklyClosingResponse create(WeeklyClosingCreateRequest request) {
-        LocalDate weekStart = calculateWeekStart(request.getWeekYear(), request.getWeekNumber());
+        LocalDate weekStart = IsoWeeks.start(request.getWeekYear(), request.getWeekNumber());
         LocalDate weekEnd = weekStart.plusDays(6);
         User owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new UserNotFoundException(request.getOwnerId()));
@@ -318,24 +316,6 @@ public class WeeklyClosingServiceImpl implements WeeklyClosingService {
         records.stream()
                 .map(record -> new PochiDay(record.getPochiId(), record.getResolvedDate()))
                 .forEach(resolvedDays::add);
-    }
-
-    private LocalDate calculateWeekStart(Integer weekYear, Integer weekNumber) {
-        if (weekYear == null || weekYear < 1 || weekYear > 9999
-                || weekNumber == null || weekNumber < 1 || weekNumber > 53) {
-            throw new InvalidWeeklyClosingException("A valid ISO week year and week number are required.");
-        }
-
-        LocalDate firstMonday = LocalDate.of(weekYear, 1, 4)
-                .with(WeekFields.ISO.dayOfWeek(), DayOfWeek.MONDAY.getValue());
-        LocalDate weekStart = firstMonday.plusWeeks(weekNumber - 1L);
-        WeekFields iso = WeekFields.ISO;
-        if (weekStart.get(iso.weekBasedYear()) != weekYear
-                || weekStart.get(iso.weekOfWeekBasedYear()) != weekNumber) {
-            throw new InvalidWeeklyClosingException(
-                    "ISO week " + weekNumber + " does not exist in week year " + weekYear);
-        }
-        return weekStart;
     }
 
     private record PochiDay(Integer pochiId, LocalDate date) {
